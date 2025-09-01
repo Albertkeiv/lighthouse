@@ -207,3 +207,174 @@ def update_profile(
     save_profiles(profiles, file_path)
     logger.info("Profile '%s' updated", original_name)
     return profile
+
+
+def add_tunnel(
+    profile_name: str,
+    tunnel_name: str,
+    local_port: int,
+    remote_host: str,
+    remote_port: int,
+    file_path: Union[str, Path] = PROFILES_FILE,
+) -> Dict[str, Union[str, int]]:
+    """Create and attach an SSH tunnel to a profile.
+
+    Parameters
+    ----------
+    profile_name: str
+        Name of the profile to modify.
+    tunnel_name: str
+        Unique name for the tunnel.
+    local_port: int
+        Local port for the tunnel.
+    remote_host: str
+        Remote host to connect to.
+    remote_port: int
+        Remote port to connect to.
+    file_path: str | Path, optional
+        Path to the profiles JSON file. Defaults to ``PROFILES_FILE``.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(
+        "Request to add tunnel '%s' to profile '%s'", tunnel_name, profile_name
+    )
+
+    if not profile_name or not tunnel_name:
+        raise ValueError("Profile name and tunnel name must be provided")
+
+    try:
+        l_port = int(local_port)
+        r_port = int(remote_port)
+    except ValueError as exc:  # pragma: no cover - defensive
+        raise ValueError("Ports must be integers") from exc
+
+    for port in (l_port, r_port):
+        if not (1 <= port <= 65535):
+            raise ValueError(f"Port {port} must be between 1 and 65535")
+
+    if not remote_host:
+        raise ValueError("Remote host must be provided")
+
+    profiles = load_profiles(file_path)
+    profile = next((p for p in profiles if p.get("name") == profile_name), None)
+    if profile is None:
+        logger.warning("Profile '%s' not found", profile_name)
+        raise ValueError(f"Profile '{profile_name}' not found")
+
+    tunnels = profile.setdefault("tunnels", [])
+    if any(t.get("name") == tunnel_name for t in tunnels):
+        raise ValueError(
+            f"Tunnel '{tunnel_name}' already exists for profile '{profile_name}'"
+        )
+
+    tunnel = {
+        "name": tunnel_name,
+        "local_port": l_port,
+        "remote_host": remote_host,
+        "remote_port": r_port,
+    }
+    tunnels.append(tunnel)
+    save_profiles(profiles, file_path)
+    logger.info("Tunnel '%s' added to profile '%s'", tunnel_name, profile_name)
+    return tunnel
+
+
+def update_tunnel(
+    profile_name: str,
+    tunnel_name: str,
+    new_name: str,
+    local_port: int,
+    remote_host: str,
+    remote_port: int,
+    file_path: Union[str, Path] = PROFILES_FILE,
+) -> Dict[str, Union[str, int]]:
+    """Update parameters of an existing SSH tunnel."""
+    logger = logging.getLogger(__name__)
+    logger.info(
+        "Request to update tunnel '%s' in profile '%s'", tunnel_name, profile_name
+    )
+
+    if not profile_name or not new_name or not tunnel_name:
+        raise ValueError("Profile name and tunnel names must be provided")
+
+    try:
+        l_port = int(local_port)
+        r_port = int(remote_port)
+    except ValueError as exc:  # pragma: no cover - defensive
+        raise ValueError("Ports must be integers") from exc
+
+    for port in (l_port, r_port):
+        if not (1 <= port <= 65535):
+            raise ValueError(f"Port {port} must be between 1 and 65535")
+
+    if not remote_host:
+        raise ValueError("Remote host must be provided")
+
+    profiles = load_profiles(file_path)
+    profile = next((p for p in profiles if p.get("name") == profile_name), None)
+    if profile is None:
+        logger.warning("Profile '%s' not found", profile_name)
+        raise ValueError(f"Profile '{profile_name}' not found")
+
+    tunnels = profile.get("tunnels", [])
+    tunnel = next((t for t in tunnels if t.get("name") == tunnel_name), None)
+    if tunnel is None:
+        logger.warning(
+            "Tunnel '%s' not found for profile '%s'", tunnel_name, profile_name
+        )
+        raise ValueError(
+            f"Tunnel '{tunnel_name}' not found for profile '{profile_name}'"
+        )
+
+    if new_name != tunnel_name and any(t.get("name") == new_name for t in tunnels):
+        raise ValueError(
+            f"Tunnel '{new_name}' already exists for profile '{profile_name}'"
+        )
+
+    tunnel.update(
+        {
+            "name": new_name,
+            "local_port": l_port,
+            "remote_host": remote_host,
+            "remote_port": r_port,
+        }
+    )
+    save_profiles(profiles, file_path)
+    logger.info("Tunnel '%s' updated in profile '%s'", tunnel_name, profile_name)
+    return tunnel
+
+
+def delete_tunnel(
+    profile_name: str,
+    tunnel_name: str,
+    file_path: Union[str, Path] = PROFILES_FILE,
+) -> bool:
+    """Remove an SSH tunnel from a profile."""
+    logger = logging.getLogger(__name__)
+    logger.info(
+        "Request to delete tunnel '%s' from profile '%s'", tunnel_name, profile_name
+    )
+
+    if not profile_name or not tunnel_name:
+        raise ValueError("Profile name and tunnel name must be provided")
+
+    profiles = load_profiles(file_path)
+    profile = next((p for p in profiles if p.get("name") == profile_name), None)
+    if profile is None:
+        logger.warning("Profile '%s' not found", profile_name)
+        raise ValueError(f"Profile '{profile_name}' not found")
+
+    tunnels = profile.get("tunnels", [])
+    remaining = [t for t in tunnels if t.get("name") != tunnel_name]
+    if len(remaining) == len(tunnels):
+        logger.warning(
+            "Tunnel '%s' not found for profile '%s'", tunnel_name, profile_name
+        )
+        return False
+
+    profile["tunnels"] = remaining
+    save_profiles(profiles, file_path)
+    logger.info(
+        "Tunnel '%s' deleted from profile '%s'", tunnel_name, profile_name
+    )
+    return True
