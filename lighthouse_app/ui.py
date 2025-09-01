@@ -3,7 +3,9 @@ import logging
 from pathlib import Path
 from typing import List, Union
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
+
+from .profiles import create_profile, load_profiles
 
 PANE_LAYOUT_FILE = "pane_layout.ini"
 
@@ -128,6 +130,7 @@ class LighthouseApp:
         self.profile_list = tk.Listbox(profile_frame)
         self.profile_list.pack(fill=tk.BOTH, expand=True)
         self.profile_list.bind("<<ListboxSelect>>", self._on_profile_select)
+        self._load_profiles_into_list()
 
         # Tunnels list
         tunnel_frame = tk.Frame(self.top_pane, bd=2, relief=tk.GROOVE)
@@ -199,10 +202,35 @@ class LighthouseApp:
             value = event.widget.get(index)
             self.logger.info("Tunnel selected: %s", value)
 
+    def _load_profiles_into_list(self) -> None:
+        """Populate the profiles listbox from stored profiles."""
+        try:
+            profiles = load_profiles()
+            for profile in profiles:
+                display = f"{profile['name']} ({profile['ip']})"
+                self.profile_list.insert(tk.END, display)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to load profiles: %s", exc)
+
     def _on_new_profile(self) -> None:
         """Triggered when the 'New Profile' button is pressed."""
         self.logger.info("New profile creation requested")
-        messagebox.showinfo("Info", "New Profile functionality not yet implemented.")
+        name = simpledialog.askstring("Profile Name", "Enter profile name:")
+        if not name:
+            self.logger.info("Profile creation cancelled: no name provided")
+            return
+        key_path = simpledialog.askstring("SSH Key Path", "Enter path to SSH key:")
+        if not key_path:
+            self.logger.info("Profile creation cancelled: no SSH key path provided")
+            return
+        try:
+            profile = create_profile(name, key_path)
+            display = f"{profile['name']} ({profile['ip']})"
+            self.profile_list.insert(tk.END, display)
+            messagebox.showinfo("Success", f"Profile '{profile['name']}' created")
+        except Exception as exc:
+            self.logger.exception("Failed to create profile: %s", exc)
+            messagebox.showerror("Error", str(exc))
 
     def _on_new_tunnel(self) -> None:
         """Triggered when the 'New Tunnel' button is pressed."""
