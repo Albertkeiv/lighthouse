@@ -121,7 +121,6 @@ class LighthouseApp:
         )
         self.top_pane.grid(row=0, column=0, columnspan=3, sticky="nsew")
         self.top_pane.bind("<ButtonRelease-1>", self._on_pane_resize)
-        self._restore_pane_layout()
 
         # Profiles list
         profile_frame = tk.Frame(self.top_pane, bd=2, relief=tk.GROOVE)
@@ -142,6 +141,10 @@ class LighthouseApp:
         self.top_pane.add(info_frame, minsize=200)
         info_frame.rowconfigure(0, weight=3)
         info_frame.rowconfigure(1, weight=1)
+
+        # Restore pane layout after all panes have been added.
+        # Calling this earlier results in errors because sashes do not yet exist.
+        self._restore_pane_layout()
 
         self.status_text = tk.Text(info_frame, height=10)
         self.status_text.grid(row=0, column=0, sticky="nsew")
