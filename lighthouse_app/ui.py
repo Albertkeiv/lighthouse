@@ -450,6 +450,7 @@ class LighthouseApp:
         self.profile_list = tk.Listbox(profile_frame)
         self.profile_list.pack(fill=tk.BOTH, expand=True)
         self.profile_list.bind("<<ListboxSelect>>", self._on_profile_select)
+        self.profile_list.bind("<Double-1>", self._on_profile_double_click)
         new_profile_btn = tk.Button(
             profile_frame, text="New Profile", command=self._on_new_profile
         )
@@ -533,6 +534,11 @@ class LighthouseApp:
             index = selection[0]
             value = event.widget.get(index)
             self.logger.info("Profile selected: %s", value)
+
+    def _on_profile_double_click(self, event: tk.Event) -> None:  # pragma: no cover - GUI event
+        """Open the profile edit dialog when a profile is double-clicked."""
+        self.logger.info("Profile double-click event")
+        self._on_edit_profile()
 
     def _on_tunnel_select(self, event: tk.Event) -> None:
         """Handle tunnel selection event."""
