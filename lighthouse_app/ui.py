@@ -622,6 +622,7 @@ class LighthouseApp:
         self.tunnel_list = tk.Listbox(tunnel_frame)
         self.tunnel_list.pack(fill=tk.BOTH, expand=True)
         self.tunnel_list.bind("<<ListboxSelect>>", self._on_tunnel_select)
+        self.tunnel_list.bind("<Double-1>", self._on_tunnel_double_click)
         new_tunnel_btn = tk.Button(
             tunnel_frame, text="New Tunnel", command=self._on_new_tunnel
         )
@@ -729,6 +730,11 @@ class LighthouseApp:
             index = selection[0]
             value = event.widget.get(index)
             self.logger.info("Tunnel selected: %s", value)
+
+    def _on_tunnel_double_click(self, event: tk.Event) -> None:  # pragma: no cover - GUI event
+        """Open the tunnel edit dialog when a tunnel is double-clicked."""
+        self.logger.info("Tunnel double-click event")
+        self._on_edit_tunnel()
 
     def _load_tunnels(self, profile_name: str) -> None:
         """Populate the tunnel list for the given profile."""
