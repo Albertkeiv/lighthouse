@@ -455,9 +455,14 @@ class LighthouseApp:
         # Human friendly column headings
         self.profile_list.heading("name", text="Name")
         self.profile_list.heading("ip", text="Local IP Address")
+        # Ensure columns resize with the containing widget
+        self.profile_list.column("name", anchor="w", stretch=True)
+        self.profile_list.column("ip", anchor="w", stretch=True)
         self.profile_list.pack(fill=tk.BOTH, expand=True)
         self.profile_list.bind("<<TreeviewSelect>>", self._on_profile_select)
         self.profile_list.bind("<Double-1>", self._on_profile_double_click)
+        # Adjust column widths whenever the widget size changes
+        self.profile_list.bind("<Configure>", self._on_profile_list_configure)
         new_profile_btn = tk.Button(
             profile_frame, text="New Profile", command=self._on_new_profile
         )
@@ -548,6 +553,23 @@ class LighthouseApp:
         """Open the profile edit dialog when a profile is double-clicked."""
         self.logger.info("Profile double-click event")
         self._on_edit_profile()
+
+    def _on_profile_list_configure(self, event: tk.Event) -> None:
+        """Resize profile list columns to fit available width."""
+        try:
+            total_width = max(getattr(event, "width", 0), 1)
+            name_width = total_width // 2
+            ip_width = total_width - name_width
+            self.profile_list.column("name", width=name_width)
+            self.profile_list.column("ip", width=ip_width)
+            self.logger.info(
+                "Profile list resized to %s px: name=%s, ip=%s",
+                total_width,
+                name_width,
+                ip_width,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to resize profile list: %s", exc)
 
     def _on_tunnel_select(self, event: tk.Event) -> None:
         """Handle tunnel selection event."""

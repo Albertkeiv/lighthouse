@@ -65,8 +65,17 @@ def test_buttons_labels(monkeypatch) -> None:
             pass
 
     class DummyTreeview(DummyWidget):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.columns = {}
+
         def heading(self, *_, **__):
             pass
+
+        def column(self, name, width=None, **_):
+            if width is not None:
+                self.columns[name] = width
+            return self.columns.get(name, 0)
 
     fake_tk = SimpleNamespace(
         PanedWindow=DummyPanedWindow,
