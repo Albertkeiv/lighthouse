@@ -62,6 +62,10 @@ def test_info_frame_expands_with_window(monkeypatch):
         def panes(self):
             return self.children
 
+    class DummyTreeview(DummyWidget):
+        def heading(self, *_, **__):
+            pass
+
     fake_tk = types.SimpleNamespace(
         PanedWindow=DummyPanedWindow,
         Frame=DummyWidget,
@@ -73,8 +77,10 @@ def test_info_frame_expands_with_window(monkeypatch):
         BOTH="both",
         GROOVE="groove",
     )
+    fake_ttk = types.SimpleNamespace(Treeview=DummyTreeview)
 
     monkeypatch.setattr(ui, "tk", fake_tk)
+    monkeypatch.setattr(ui, "ttk", fake_ttk)
     monkeypatch.setattr(ui.LighthouseApp, "_setup_logging", lambda self: None)
 
     cfg = configparser.ConfigParser()
