@@ -17,6 +17,17 @@ def geometry_from_config(cfg: configparser.ConfigParser) -> str:
     return f"{width}x{height}"
 
 
+def sash_width_from_config(cfg: configparser.ConfigParser) -> int:
+    """Return sash width for resizable panes.
+
+    Ensures a positive integer is always returned, falling back to ``1``.
+    """
+    width = cfg.getint('ui', 'sash_width', fallback=1)
+    if width < 1:
+        width = 1
+    return width
+
+
 class LighthouseApp:
     """Graphical interface for managing profiles and tunnels.
 
@@ -43,33 +54,40 @@ class LighthouseApp:
         )
 
     def _build_ui(self) -> None:
-        """Create and arrange widgets using grid geometry manager."""
-        # Configure grid
-        self.root.columnconfigure(0, weight=1, minsize=150)
-        self.root.columnconfigure(1, weight=1, minsize=150)
-        self.root.columnconfigure(2, weight=3, minsize=300)
+        """Create and arrange widgets using a resizable paned window."""
+        # Configure grid for the main window
+        self.root.columnconfigure(0, weight=1)
+        self.root.columnconfigure(1, weight=1)
+        self.root.columnconfigure(2, weight=3)
         # Top row holds the main content and expands to fill extra space.
         self.root.rowconfigure(0, weight=1)
         self.root.rowconfigure(1, weight=0)
 
+        # Paned window to allow user resizing between sections
+        sash_width = sash_width_from_config(self.cfg)
+        self.top_pane = tk.PanedWindow(
+            self.root, orient=tk.HORIZONTAL, sashwidth=sash_width
+        )
+        self.top_pane.grid(row=0, column=0, columnspan=3, sticky="nsew")
+        self.top_pane.bind("<ButtonRelease-1>", self._on_pane_resize)
 
         # Profiles list
-        profile_frame = tk.Frame(self.root, bd=2, relief=tk.GROOVE)
-        profile_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        profile_frame = tk.Frame(self.top_pane, bd=2, relief=tk.GROOVE)
+        self.top_pane.add(profile_frame, minsize=100)
         self.profile_list = tk.Listbox(profile_frame)
         self.profile_list.pack(fill=tk.BOTH, expand=True)
         self.profile_list.bind("<<ListboxSelect>>", self._on_profile_select)
 
         # Tunnels list
-        tunnel_frame = tk.Frame(self.root, bd=2, relief=tk.GROOVE)
-        tunnel_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        tunnel_frame = tk.Frame(self.top_pane, bd=2, relief=tk.GROOVE)
+        self.top_pane.add(tunnel_frame, minsize=100)
         self.tunnel_list = tk.Listbox(tunnel_frame)
         self.tunnel_list.pack(fill=tk.BOTH, expand=True)
         self.tunnel_list.bind("<<ListboxSelect>>", self._on_tunnel_select)
 
         # Info and log area
-        info_frame = tk.Frame(self.root)
-        info_frame.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
+        info_frame = tk.Frame(self.top_pane)
+        self.top_pane.add(info_frame, minsize=200)
         info_frame.rowconfigure(0, weight=3)
         info_frame.rowconfigure(1, weight=1)
 
@@ -127,6 +145,17 @@ class LighthouseApp:
         """Triggered when the 'Program Settings' button is pressed."""
         self.logger.info("Program settings requested")
         messagebox.showinfo("Info", "Settings functionality not yet implemented.")
+
+    def _on_pane_resize(self, event: tk.Event) -> None:
+        """Log pane positions after user resizes the interface."""
+        try:
+            pane_count = len(self.top_pane.panes())
+            coords = [
+                self.top_pane.sash_coord(i) for i in range(pane_count - 1)
+            ]
+            self.logger.info("Pane resized; sash coordinates: %s", coords)
+        except Exception as exc:
+            self.logger.exception("Failed to log pane resize: %s", exc)
 
     def run(self) -> None:
         """Run the Tkinter main event loop."""
