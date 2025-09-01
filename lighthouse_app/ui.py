@@ -6,7 +6,15 @@ import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 from ipaddress import ip_address
 
-from .profiles import create_profile, load_profiles, delete_profile, update_profile
+from .profiles import (
+    create_profile,
+    load_profiles,
+    delete_profile,
+    update_profile,
+    add_tunnel,
+    update_tunnel,
+    delete_tunnel,
+)
 from .ssh_keys import (
     create_key as create_ssh_key,
     load_keys as load_ssh_keys,
@@ -294,6 +302,92 @@ class SSHKeyDialog(simpledialog.Dialog):
         super().cancel(event)
 
 
+class TunnelDialog(simpledialog.Dialog):
+    """Dialog window for collecting or editing tunnel parameters."""
+
+    def __init__(
+        self,
+        parent: tk.Tk,
+        existing_tunnels: List[dict],
+        tunnel: Optional[dict] = None,
+    ):
+        self.existing_tunnels = existing_tunnels
+        self.tunnel = tunnel
+        self.logger = logging.getLogger(__name__)
+        title = "Edit Tunnel" if tunnel is not None else "New Tunnel"
+        super().__init__(parent, title)
+
+    def body(self, master: tk.Misc) -> tk.Entry:
+        tk.Label(master, text="Tunnel name:").grid(row=0, column=0, sticky="w")
+        self.name_entry = tk.Entry(master)
+        self.name_entry.grid(row=0, column=1)
+
+        tk.Label(master, text="Local port:").grid(row=1, column=0, sticky="w")
+        self.local_entry = tk.Entry(master)
+        self.local_entry.grid(row=1, column=1)
+
+        tk.Label(master, text="Remote host:").grid(row=2, column=0, sticky="w")
+        self.host_entry = tk.Entry(master)
+        self.host_entry.grid(row=2, column=1)
+
+        tk.Label(master, text="Remote port:").grid(row=3, column=0, sticky="w")
+        self.remote_entry = tk.Entry(master)
+        self.remote_entry.grid(row=3, column=1)
+
+        if self.tunnel is not None:
+            self.name_entry.insert(0, self.tunnel.get("name", ""))
+            self.local_entry.insert(0, str(self.tunnel.get("local_port", "")))
+            self.host_entry.insert(0, self.tunnel.get("remote_host", ""))
+            self.remote_entry.insert(0, str(self.tunnel.get("remote_port", "")))
+
+        return self.name_entry
+
+    def validate(self) -> bool:  # pragma: no cover - GUI validation
+        name = self.name_entry.get().strip()
+        local = self.local_entry.get().strip()
+        host = self.host_entry.get().strip()
+        remote = self.remote_entry.get().strip()
+
+        if not all([name, local, host, remote]):
+            messagebox.showerror("Error", "All fields must be provided")
+            return False
+
+        existing_name = (self.tunnel or {}).get("name")
+        if any(
+            t.get("name") == name and t.get("name") != existing_name
+            for t in self.existing_tunnels
+        ):
+            messagebox.showerror("Error", f"Tunnel '{name}' already exists")
+            self.logger.warning("Tunnel dialog aborted: name '%s' exists", name)
+            return False
+
+        for label, value in {"Local port": local, "Remote port": remote}.items():
+            try:
+                port = int(value)
+            except ValueError:
+                messagebox.showerror("Error", f"{label} must be an integer")
+                return False
+            if not (1 <= port <= 65535):
+                messagebox.showerror(
+                    "Error", f"{label} must be between 1 and 65535"
+                )
+                return False
+
+        return True
+
+    def apply(self) -> None:  # pragma: no cover - GUI side effect
+        name = self.name_entry.get().strip()
+        local = int(self.local_entry.get().strip())
+        host = self.host_entry.get().strip()
+        remote = int(self.remote_entry.get().strip())
+        self.result = (name, local, host, remote)
+        self.logger.info("Tunnel dialog confirmed for '%s'", name)
+
+    def cancel(self, event=None) -> None:  # pragma: no cover - GUI side effect
+        self.logger.info("Tunnel dialog cancelled")
+        super().cancel(event)
+
+
 class SSHKeyManager:
     """Window for managing SSH keys."""
 
@@ -519,6 +613,14 @@ class LighthouseApp:
             tunnel_frame, text="New Tunnel", command=self._on_new_tunnel
         )
         new_tunnel_btn.pack(fill="x")
+        edit_tunnel_btn = tk.Button(
+            tunnel_frame, text="Edit Tunnel", command=self._on_edit_tunnel
+        )
+        edit_tunnel_btn.pack(fill="x")
+        delete_tunnel_btn = tk.Button(
+            tunnel_frame, text="Delete Tunnel", command=self._on_delete_tunnel
+        )
+        delete_tunnel_btn.pack(fill="x")
 
         # Info and log area
         info_frame = tk.Frame(self.top_pane)
@@ -576,10 +678,14 @@ class LighthouseApp:
         selected = event.widget.selection()
         if selected:
             values = event.widget.item(selected[0], "values")
+            profile_name = values[0]
             if len(values) >= 2:
-                self.logger.info("Profile selected: %s (%s)", values[0], values[1])
+                self.logger.info(
+                    "Profile selected: %s (%s)", profile_name, values[1]
+                )
             else:  # pragma: no cover - defensive
-                self.logger.info("Profile selected: %s", values[0])
+                self.logger.info("Profile selected: %s", profile_name)
+            self._load_tunnels(profile_name)
 
     def _on_profile_double_click(self, event: tk.Event) -> None:  # pragma: no cover - GUI event
         """Open the profile edit dialog when a profile is double-clicked."""
@@ -610,6 +716,23 @@ class LighthouseApp:
             index = selection[0]
             value = event.widget.get(index)
             self.logger.info("Tunnel selected: %s", value)
+
+    def _load_tunnels(self, profile_name: str) -> None:
+        """Populate the tunnel list for the given profile."""
+        self.tunnel_list.delete(0, tk.END)
+        try:
+            profiles = load_profiles()
+            profile = next((p for p in profiles if p.get("name") == profile_name), None)
+            tunnels = profile.get("tunnels", []) if profile else []
+            for tunnel in tunnels:
+                self.tunnel_list.insert(tk.END, tunnel.get("name", ""))
+            self.logger.info(
+                "Loaded %d tunnels for profile '%s'", len(tunnels), profile_name
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception(
+                "Failed to load tunnels for profile '%s': %s", profile_name, exc
+            )
 
     def _load_profiles_into_list(self) -> None:
         """Populate the profiles table from stored profiles."""
@@ -716,7 +839,143 @@ class LighthouseApp:
     def _on_new_tunnel(self) -> None:
         """Triggered when the 'New Tunnel' button is pressed."""
         self.logger.info("New tunnel creation requested")
-        messagebox.showinfo("Info", "New Tunnel functionality not yet implemented.")
+        selection = self.profile_list.selection()
+        if not selection:
+            messagebox.showwarning(
+                "No profile", "Please select a profile to add a tunnel."
+            )
+            self.logger.info("Tunnel creation cancelled: no profile selected")
+            return
+        item_id = selection[0]
+        values = self.profile_list.item(item_id, "values")
+        profile_name = values[0]
+        try:
+            profiles = load_profiles()
+            profile = next((p for p in profiles if p.get("name") == profile_name), None)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to load profiles for tunnel dialog: %s", exc)
+            messagebox.showerror("Error", "Failed to load profiles")
+            return
+        existing = profile.get("tunnels", []) if profile else []
+        dialog = TunnelDialog(self.root, existing)
+        if not getattr(dialog, "result", None):
+            self.logger.info("Tunnel creation cancelled by user")
+            return
+        name, local_port, host, remote_port = dialog.result
+        try:
+            tunnel = add_tunnel(profile_name, name, local_port, host, remote_port)
+            self.tunnel_list.insert(tk.END, tunnel["name"])
+            self.logger.info(
+                "Tunnel '%s' added to profile '%s'", name, profile_name
+            )
+        except Exception as exc:
+            self.logger.exception("Failed to add tunnel: %s", exc)
+            messagebox.showerror("Error", str(exc))
+
+    def _on_edit_tunnel(self) -> None:
+        """Triggered when the 'Edit Tunnel' button is pressed."""
+        self.logger.info("Tunnel edit requested")
+        profile_sel = self.profile_list.selection()
+        if not profile_sel:
+            messagebox.showwarning(
+                "No profile", "Please select a profile to edit its tunnel."
+            )
+            self.logger.info("Tunnel edit cancelled: no profile selected")
+            return
+        profile_name = self.profile_list.item(profile_sel[0], "values")[0]
+        tunnel_sel = self.tunnel_list.curselection()
+        if not tunnel_sel:
+            messagebox.showwarning(
+                "No selection", "Please select a tunnel to edit."
+            )
+            self.logger.info("Tunnel edit cancelled: no tunnel selected")
+            return
+        index = tunnel_sel[0]
+        tunnel_name = self.tunnel_list.get(index)
+        try:
+            profiles = load_profiles()
+            profile = next((p for p in profiles if p.get("name") == profile_name), None)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to load profiles for tunnel edit: %s", exc)
+            messagebox.showerror("Error", "Failed to load profiles")
+            return
+        if profile is None:
+            messagebox.showerror("Error", f"Profile '{profile_name}' not found")
+            self.logger.warning(
+                "Profile '%s' not found during tunnel edit", profile_name
+            )
+            return
+        tunnels = profile.get("tunnels", [])
+        tunnel = next((t for t in tunnels if t.get("name") == tunnel_name), None)
+        if tunnel is None:
+            messagebox.showerror(
+                "Error", f"Tunnel '{tunnel_name}' not found in profile '{profile_name}'"
+            )
+            self.logger.warning(
+                "Tunnel '%s' not found during edit for profile '%s'",
+                tunnel_name,
+                profile_name,
+            )
+            return
+        dialog = TunnelDialog(self.root, tunnels, tunnel)
+        if not getattr(dialog, "result", None):
+            self.logger.info("Tunnel edit cancelled by user")
+            return
+        new_name, local_port, host, remote_port = dialog.result
+        try:
+            update_tunnel(
+                profile_name, tunnel_name, new_name, local_port, host, remote_port
+            )
+            self.tunnel_list.delete(index)
+            self.tunnel_list.insert(index, new_name)
+            self.logger.info(
+                "Tunnel '%s' updated in profile '%s'", tunnel_name, profile_name
+            )
+        except Exception as exc:
+            self.logger.exception("Failed to update tunnel: %s", exc)
+            messagebox.showerror("Error", str(exc))
+
+    def _on_delete_tunnel(self) -> None:
+        """Triggered when the 'Delete Tunnel' button is pressed."""
+        self.logger.info("Tunnel deletion requested")
+        profile_sel = self.profile_list.selection()
+        if not profile_sel:
+            messagebox.showwarning(
+                "No profile", "Please select a profile to delete its tunnel."
+            )
+            self.logger.info("Tunnel deletion cancelled: no profile selected")
+            return
+        profile_name = self.profile_list.item(profile_sel[0], "values")[0]
+        tunnel_sel = self.tunnel_list.curselection()
+        if not tunnel_sel:
+            messagebox.showwarning(
+                "No selection", "Please select a tunnel to delete."
+            )
+            self.logger.info("Tunnel deletion cancelled: no tunnel selected")
+            return
+        index = tunnel_sel[0]
+        tunnel_name = self.tunnel_list.get(index)
+        if not messagebox.askyesno("Confirm", f"Delete tunnel '{tunnel_name}'?"):
+            self.logger.info("Tunnel deletion cancelled by user")
+            return
+        try:
+            removed = delete_tunnel(profile_name, tunnel_name)
+            if removed:
+                self.tunnel_list.delete(index)
+                self.logger.info(
+                    "Tunnel '%s' deleted from profile '%s'",
+                    tunnel_name,
+                    profile_name,
+                )
+            else:
+                self.logger.warning(
+                    "Tunnel '%s' not found during deletion for profile '%s'",
+                    tunnel_name,
+                    profile_name,
+                )
+        except Exception as exc:
+            self.logger.exception("Failed to delete tunnel: %s", exc)
+            messagebox.showerror("Error", str(exc))
 
     def _on_manage_ssh_key(self) -> None:
         """Triggered when the 'Manage SSH Key' button is pressed."""

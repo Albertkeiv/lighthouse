@@ -102,7 +102,13 @@ def test_buttons_labels(monkeypatch) -> None:
     expected_settings = cfg["buttons"]["settings"]
     expected_manage = cfg["buttons"]["manage_ssh_key"]
     expected_edit = cfg["buttons"]["edit_profile"]
+    expected_new_tunnel = cfg["buttons"]["new_tunnel"]
+    expected_edit_tunnel = cfg["buttons"]["edit_tunnel"]
+    expected_delete_tunnel = cfg["buttons"]["delete_tunnel"]
 
     assert expected_settings in labels
     assert expected_manage in labels
     assert expected_edit in labels
+    assert expected_new_tunnel in labels
+    assert expected_edit_tunnel in labels
+    assert expected_delete_tunnel in labels
