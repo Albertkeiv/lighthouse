@@ -1,7 +1,7 @@
 import configparser
 import logging
 from pathlib import Path
-from typing import List, Union, Optional
+from typing import Dict, List, Union, Optional
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 from ipaddress import ip_address
@@ -103,14 +103,38 @@ class ProfileDialog(simpledialog.Dialog):
         title = "Edit Profile" if profile is not None else "Create Profile"
         super().__init__(parent, title)
 
+    @staticmethod
+    def _load_key_map() -> Dict[str, str]:
+        """Return mapping of SSH key names to their paths."""
+        logger = logging.getLogger(__name__)
+        try:
+            keys = load_ssh_keys()
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.exception("Failed to load SSH keys: %s", exc)
+            return {}
+        mapping = {
+            k.get("name", ""): k.get("path", "")
+            for k in keys
+            if k.get("name") and k.get("path")
+        }
+        logger.info("Loaded %d SSH keys for profile dialog", len(mapping))
+        return mapping
+
     def body(self, master: tk.Misc) -> tk.Entry:
         tk.Label(master, text="Profile name:").grid(row=0, column=0, sticky="w")
         self.name_entry = tk.Entry(master)
         self.name_entry.grid(row=0, column=1)
 
-        tk.Label(master, text="SSH key path:").grid(row=1, column=0, sticky="w")
-        self.key_entry = tk.Entry(master)
-        self.key_entry.grid(row=1, column=1)
+        tk.Label(master, text="SSH key:").grid(row=1, column=0, sticky="w")
+        # Prepare drop-down of available SSH keys
+        self.key_var = tk.StringVar()
+        self.key_combo = ttk.Combobox(
+            master, textvariable=self.key_var, state="readonly"
+        )
+        # Map of key names to file system paths
+        self.key_map = self._load_key_map()
+        self.key_combo["values"] = list(self.key_map.keys())
+        self.key_combo.grid(row=1, column=1)
 
         auto_default = True if self.profile is None else False
         self.auto_var = tk.BooleanVar(value=auto_default)
@@ -129,7 +153,12 @@ class ProfileDialog(simpledialog.Dialog):
 
         if self.profile is not None:
             self.name_entry.insert(0, self.profile.get("name", ""))
-            self.key_entry.insert(0, self.profile.get("ssh_key", ""))
+            # Pre-select SSH key based on stored path
+            existing_path = self.profile.get("ssh_key", "")
+            for key_name, key_path in self.key_map.items():
+                if key_path == existing_path:
+                    self.key_var.set(key_name)
+                    break
             self.ip_entry.insert(0, self.profile.get("ip", ""))
 
         return self.name_entry
@@ -144,7 +173,7 @@ class ProfileDialog(simpledialog.Dialog):
 
     def validate(self) -> bool:  # pragma: no cover - GUI validation
         name = self.name_entry.get().strip()
-        key_path = self.key_entry.get().strip()
+        key_name = self.key_var.get().strip()
         ip_str = self.ip_entry.get().strip()
 
         if not name:
@@ -158,8 +187,8 @@ class ProfileDialog(simpledialog.Dialog):
             messagebox.showerror("Error", f"Profile '{name}' already exists")
             self.logger.warning("Profile creation aborted: name '%s' exists", name)
             return False
-        if not key_path:
-            messagebox.showerror("Error", "SSH key path must be provided")
+        if not key_name or key_name not in self.key_map:
+            messagebox.showerror("Error", "SSH key must be selected")
             return False
         if not self.auto_var.get():
             if not ip_str:
@@ -182,10 +211,13 @@ class ProfileDialog(simpledialog.Dialog):
 
     def apply(self) -> None:  # pragma: no cover - GUI side effect
         name = self.name_entry.get().strip()
-        key_path = self.key_entry.get().strip()
+        key_name = self.key_var.get().strip()
+        key_path = self.key_map.get(key_name, "")
         ip_str = None if self.auto_var.get() else self.ip_entry.get().strip()
         self.result = (name, key_path, ip_str)
-        self.logger.info("Profile dialog confirmed for '%s'", name)
+        self.logger.info(
+            "Profile dialog confirmed for '%s' with key '%s'", name, key_name
+        )
 
     def cancel(self, event=None) -> None:  # pragma: no cover - GUI side effect
         self.logger.info("Profile dialog cancelled")
