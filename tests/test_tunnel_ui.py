@@ -37,13 +37,13 @@ def test_new_tunnel_skips_success_popup(monkeypatch) -> None:
             if option == "values" and not kwargs:
                 return (cfg["profile"]["name"], "")
 
-    class DummyListbox:
+    class DummyTreeview:
         def __init__(self):
             self.items = []
-        def insert(self, index, value):
-            self.items.append(value)
+        def insert(self, _parent, _index, values):
+            self.items.append(values)
     app.profile_list = DummyProfileList()
-    app.tunnel_list = DummyListbox()
+    app.tunnel_list = DummyTreeview()
 
     monkeypatch.setattr(
         ui,
@@ -74,7 +74,8 @@ def test_new_tunnel_skips_success_popup(monkeypatch) -> None:
 
     app._on_new_tunnel()
 
-    assert app.tunnel_list.items == [cfg["tunnel"]["name"]]
+    target = f"{cfg['tunnel']['remote_host']}:{cfg['tunnel']['remote_port']}"
+    assert app.tunnel_list.items == [(cfg["tunnel"]["name"], target)]
     assert "showinfo" not in called
 
 
@@ -88,19 +89,19 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
         def item(self, item_id, option=None, **kwargs):
             return (cfg["profile"]["name"], "")
 
-    class DummyListbox:
+    class DummyTreeview:
         def __init__(self):
-            self.items = [cfg["tunnel"]["name"]]
-        def curselection(self):
-            return (0,)
-        def get(self, index):
-            return self.items[index]
-        def delete(self, index):
-            self.items.pop(index)
-        def insert(self, index, value):
-            self.items.insert(index, value)
+            target = f"{cfg['tunnel']['remote_host']}:{cfg['tunnel']['remote_port']}"
+            self.items = {"item0": (cfg["tunnel"]["name"], target)}
+        def selection(self):
+            return ("item0",)
+        def item(self, item_id, option=None, **kwargs):
+            if option == "values" and not kwargs:
+                return self.items[item_id]
+            if "values" in kwargs:
+                self.items[item_id] = kwargs["values"]
     app.profile_list = DummyProfileList()
-    app.tunnel_list = DummyListbox()
+    app.tunnel_list = DummyTreeview()
 
     monkeypatch.setattr(
         ui,
@@ -144,7 +145,8 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
 
     app._on_edit_tunnel()
 
-    assert app.tunnel_list.items == [cfg["updated_tunnel"]["name"]]
+    updated_target = f"{cfg['updated_tunnel']['remote_host']}:{cfg['updated_tunnel']['remote_port']}"
+    assert list(app.tunnel_list.items.values()) == [(cfg["updated_tunnel"]["name"], updated_target)]
     assert "showinfo" not in called
 
 
@@ -158,17 +160,18 @@ def test_delete_tunnel_skips_popups(monkeypatch) -> None:
         def item(self, item_id, option=None, **kwargs):
             return (cfg["profile"]["name"], "")
 
-    class DummyListbox:
+    class DummyTreeview:
         def __init__(self):
-            self.items = [cfg["tunnel"]["name"]]
-        def curselection(self):
-            return (0,)
-        def get(self, index):
-            return self.items[index]
-        def delete(self, index):
-            self.items.pop(index)
+            target = f"{cfg['tunnel']['remote_host']}:{cfg['tunnel']['remote_port']}"
+            self.items = {"item0": (cfg["tunnel"]["name"], target)}
+        def selection(self):
+            return ("item0",)
+        def item(self, item_id, option=None, **kwargs):
+            return self.items[item_id]
+        def delete(self, item_id):
+            self.items.pop(item_id)
     app.profile_list = DummyProfileList()
-    app.tunnel_list = DummyListbox()
+    app.tunnel_list = DummyTreeview()
 
     monkeypatch.setattr(ui.messagebox, "askyesno", lambda *a, **k: True)
     monkeypatch.setattr(ui, "delete_tunnel", lambda *a, **k: True)
@@ -180,6 +183,6 @@ def test_delete_tunnel_skips_popups(monkeypatch) -> None:
 
     app._on_delete_tunnel()
 
-    assert app.tunnel_list.items == []
+    assert app.tunnel_list.items == {}
     assert "showinfo" not in called and "showwarning" not in called
 
