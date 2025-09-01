@@ -1,13 +1,13 @@
 import json
 import logging
-from ipaddress import IPv4Network
+from ipaddress import IPv4Network, ip_address
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 
 # File where profiles are stored
 PROFILES_FILE = "profiles.json"
-# Network from which profile IPs are allocated
-PROFILE_NET = IPv4Network("127.0.0.0/8")
+# Network from which automatic profile IPs are allocated
+PROFILE_NET = IPv4Network("127.1.1.0/24")
 
 
 def load_profiles(file_path: Union[str, Path] = PROFILES_FILE) -> List[Dict[str, str]]:
@@ -49,21 +49,21 @@ def save_profiles(profiles: List[Dict[str, str]], file_path: Union[str, Path] = 
 
 
 def _allocate_ip(existing_profiles: List[Dict[str, str]]) -> str:
-    """Return the first free IP address from PROFILE_NET.
-
-    Skips 127.0.0.1 and addresses already present in ``existing_profiles``.
-    """
+    """Return the first free IP address from ``PROFILE_NET``."""
     used_ips = {p.get("ip") for p in existing_profiles}
     for addr in PROFILE_NET.hosts():
         ip = str(addr)
-        if ip == "127.0.0.1":
-            continue
         if ip not in used_ips:
             return ip
-    raise RuntimeError("No available IP addresses in 127.0.0.0/8")
+    raise RuntimeError("No available IP addresses in 127.1.1.0/24")
 
 
-def create_profile(name: str, ssh_key_path: Union[str, Path], file_path: Union[str, Path] = PROFILES_FILE) -> Dict[str, str]:
+def create_profile(
+    name: str,
+    ssh_key_path: Union[str, Path],
+    ip: Optional[str] = None,
+    file_path: Union[str, Path] = PROFILES_FILE,
+) -> Dict[str, str]:
     """Create and store a new profile.
 
     Parameters
@@ -72,6 +72,9 @@ def create_profile(name: str, ssh_key_path: Union[str, Path], file_path: Union[s
         Human-readable profile name.
     ssh_key_path: str | Path
         Path to the SSH private key.
+    ip: str, optional
+        Specific IP address to assign to the profile. If not provided,
+        an address is automatically allocated from ``PROFILE_NET``.
     file_path: str | Path, optional
         Path to the profiles JSON file. Defaults to ``PROFILES_FILE``.
     """
@@ -89,9 +92,20 @@ def create_profile(name: str, ssh_key_path: Union[str, Path], file_path: Union[s
     if any(p.get("name") == name for p in profiles):
         raise ValueError(f"Profile '{name}' already exists")
 
-    ip = _allocate_ip(profiles)
-    profile = {"name": name, "ip": ip, "ssh_key": str(key_path)}
+    if ip is not None:
+        try:
+            ip_str = str(ip_address(ip))
+        except ValueError as exc:
+            raise ValueError(f"Invalid IP address: {ip}") from exc
+        if any(p.get("ip") == ip_str for p in profiles):
+            raise ValueError(f"IP address {ip_str} is already in use")
+        logger.info("Manual IP '%s' requested", ip_str)
+    else:
+        ip_str = _allocate_ip(profiles)
+        logger.info("Automatically allocated IP '%s'", ip_str)
+
+    profile = {"name": name, "ip": ip_str, "ssh_key": str(key_path)}
     profiles.append(profile)
     save_profiles(profiles, file_path)
-    logger.info("Profile '%s' created with IP %s", name, ip)
+    logger.info("Profile '%s' created with IP %s", name, ip_str)
     return profile

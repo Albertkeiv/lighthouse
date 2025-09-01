@@ -21,14 +21,55 @@ def test_profile_creation_and_storage(tmp_path):
 
     key1 = tmp_path / cfg["profile1"]["ssh_key_filename"]
     key1.touch()
-    profile1 = create_profile(cfg["profile1"]["name"], key1, profiles_file)
+    profile1 = create_profile(
+        cfg["profile1"]["name"], key1, file_path=profiles_file
+    )
     assert profile1["ip"] == cfg["expected"]["first_ip"]
 
     key2 = tmp_path / cfg["profile2"]["ssh_key_filename"]
     key2.touch()
-    profile2 = create_profile(cfg["profile2"]["name"], key2, profiles_file)
+    profile2 = create_profile(
+        cfg["profile2"]["name"], key2, file_path=profiles_file
+    )
     assert profile2["ip"] == cfg["expected"]["second_ip"]
 
     stored = load_profiles(profiles_file)
     assert stored[0]["name"] == cfg["profile1"]["name"]
     assert stored[1]["name"] == cfg["profile2"]["name"]
+
+
+def test_manual_ip_assignment(tmp_path):
+    cfg = _load_cfg()
+    profiles_file = tmp_path / PROFILES_FILE
+
+    key = tmp_path / cfg["manual_profile"]["ssh_key_filename"]
+    key.touch()
+    manual_ip = cfg["manual_profile"]["ip"]
+    profile = create_profile(
+        cfg["manual_profile"]["name"], key, ip=manual_ip, file_path=profiles_file
+    )
+    assert profile["ip"] == cfg["expected"]["manual_ip"]
+
+
+def test_manual_ip_duplicate_error(tmp_path):
+    cfg = _load_cfg()
+    profiles_file = tmp_path / PROFILES_FILE
+
+    key1 = tmp_path / cfg["manual_profile"]["ssh_key_filename"]
+    key1.touch()
+    manual_ip = cfg["expected"]["manual_ip"]
+    create_profile(
+        cfg["manual_profile"]["name"], key1, ip=manual_ip, file_path=profiles_file
+    )
+
+    key2 = tmp_path / cfg["duplicate_profile"]["ssh_key_filename"]
+    key2.touch()
+    import pytest
+
+    with pytest.raises(ValueError):
+        create_profile(
+            cfg["duplicate_profile"]["name"],
+            key2,
+            ip=manual_ip,
+            file_path=profiles_file,
+        )
