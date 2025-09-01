@@ -619,9 +619,18 @@ class LighthouseApp:
         # Tunnels list
         tunnel_frame = tk.Frame(self.top_pane, bd=2, relief=tk.GROOVE)
         self.top_pane.add(tunnel_frame, minsize=100)
-        self.tunnel_list = tk.Listbox(tunnel_frame)
+        # Display tunnels in a table with tunnel name and target host
+        self.tunnel_list = ttk.Treeview(
+            tunnel_frame,
+            columns=("name", "target"),
+            show="headings",
+        )
+        self.tunnel_list.heading("name", text="Tunnel name")
+        self.tunnel_list.heading("target", text="Target")
+        self.tunnel_list.column("name", anchor="w", stretch=True)
+        self.tunnel_list.column("target", anchor="w", stretch=True)
         self.tunnel_list.pack(fill=tk.BOTH, expand=True)
-        self.tunnel_list.bind("<<ListboxSelect>>", self._on_tunnel_select)
+        self.tunnel_list.bind("<<TreeviewSelect>>", self._on_tunnel_select)
         self.tunnel_list.bind("<Double-1>", self._on_tunnel_double_click)
         new_tunnel_btn = tk.Button(
             tunnel_frame, text="New Tunnel", command=self._on_new_tunnel
@@ -725,11 +734,14 @@ class LighthouseApp:
 
     def _on_tunnel_select(self, event: tk.Event) -> None:
         """Handle tunnel selection event."""
-        selection = event.widget.curselection()
+        selection = event.widget.selection()
         if selection:
-            index = selection[0]
-            value = event.widget.get(index)
-            self.logger.info("Tunnel selected: %s", value)
+            item_id = selection[0]
+            values = event.widget.item(item_id, "values")
+            if len(values) >= 2:
+                self.logger.info("Tunnel selected: %s -> %s", values[0], values[1])
+            elif values:
+                self.logger.info("Tunnel selected: %s", values[0])
 
     def _on_tunnel_double_click(self, event: tk.Event) -> None:  # pragma: no cover - GUI event
         """Open the tunnel edit dialog when a tunnel is double-clicked."""
@@ -738,13 +750,15 @@ class LighthouseApp:
 
     def _load_tunnels(self, profile_name: str) -> None:
         """Populate the tunnel list for the given profile."""
-        self.tunnel_list.delete(0, tk.END)
+        # Clear existing rows before loading new ones
+        self.tunnel_list.delete(*self.tunnel_list.get_children())
         try:
             profiles = load_profiles()
             profile = next((p for p in profiles if p.get("name") == profile_name), None)
             tunnels = profile.get("tunnels", []) if profile else []
             for tunnel in tunnels:
-                self.tunnel_list.insert(tk.END, tunnel.get("name", ""))
+                target = f"{tunnel.get('remote_host', '')}:{tunnel.get('remote_port', '')}"
+                self.tunnel_list.insert("", tk.END, values=(tunnel.get("name", ""), target))
             self.logger.info(
                 "Loaded %d tunnels for profile '%s'", len(tunnels), profile_name
             )
@@ -885,7 +899,8 @@ class LighthouseApp:
             tunnel = add_tunnel(
                 profile_name, name, local_port, host, remote_port, dns_name
             )
-            self.tunnel_list.insert(tk.END, tunnel["name"])
+            target = f"{host}:{remote_port}"
+            self.tunnel_list.insert("", tk.END, values=(tunnel["name"], target))
             self.logger.info(
                 "Tunnel '%s' added to profile '%s' with DNS '%s'",
                 name,
@@ -907,15 +922,15 @@ class LighthouseApp:
             self.logger.info("Tunnel edit cancelled: no profile selected")
             return
         profile_name = self.profile_list.item(profile_sel[0], "values")[0]
-        tunnel_sel = self.tunnel_list.curselection()
+        tunnel_sel = self.tunnel_list.selection()
         if not tunnel_sel:
             messagebox.showwarning(
                 "No selection", "Please select a tunnel to edit."
             )
             self.logger.info("Tunnel edit cancelled: no tunnel selected")
             return
-        index = tunnel_sel[0]
-        tunnel_name = self.tunnel_list.get(index)
+        item_id = tunnel_sel[0]
+        tunnel_name = self.tunnel_list.item(item_id, "values")[0]
         try:
             profiles = load_profiles()
             profile = next((p for p in profiles if p.get("name") == profile_name), None)
@@ -956,8 +971,8 @@ class LighthouseApp:
                 remote_port,
                 dns_name,
             )
-            self.tunnel_list.delete(index)
-            self.tunnel_list.insert(index, new_name)
+            target = f"{host}:{remote_port}"
+            self.tunnel_list.item(item_id, values=(new_name, target))
             self.logger.info(
                 "Tunnel '%s' updated in profile '%s' with DNS '%s'",
                 tunnel_name,
@@ -979,22 +994,22 @@ class LighthouseApp:
             self.logger.info("Tunnel deletion cancelled: no profile selected")
             return
         profile_name = self.profile_list.item(profile_sel[0], "values")[0]
-        tunnel_sel = self.tunnel_list.curselection()
+        tunnel_sel = self.tunnel_list.selection()
         if not tunnel_sel:
             messagebox.showwarning(
                 "No selection", "Please select a tunnel to delete."
             )
             self.logger.info("Tunnel deletion cancelled: no tunnel selected")
             return
-        index = tunnel_sel[0]
-        tunnel_name = self.tunnel_list.get(index)
+        item_id = tunnel_sel[0]
+        tunnel_name = self.tunnel_list.item(item_id, "values")[0]
         if not messagebox.askyesno("Confirm", f"Delete tunnel '{tunnel_name}'?"):
             self.logger.info("Tunnel deletion cancelled by user")
             return
         try:
             removed = delete_tunnel(profile_name, tunnel_name)
             if removed:
-                self.tunnel_list.delete(index)
+                self.tunnel_list.delete(item_id)
                 self.logger.info(
                     "Tunnel '%s' deleted from profile '%s'",
                     tunnel_name,

@@ -20,15 +20,14 @@ def _load_cfg() -> configparser.ConfigParser:
 def test_tunnel_list_double_click_triggers_edit(monkeypatch) -> None:
     """Double-clicking a tunnel should invoke the edit handler."""
     cfg = _load_cfg()
-    bindings: dict = {}
 
     class DummyTreeview:
         def __init__(self, *_, **__):
-            pass
+            self.bindings = {}
         def pack(self, *_, **__):
             pass
-        def bind(self, *_, **__):
-            pass
+        def bind(self, event, callback):
+            self.bindings[event] = callback
         def heading(self, *_, **__):
             pass
         def column(self, *_, **__):
@@ -37,14 +36,6 @@ def test_tunnel_list_double_click_triggers_edit(monkeypatch) -> None:
             return ()
         def item(self, *_, **__):
             return ()
-
-    class DummyListbox:
-        def __init__(self, *_, **__):
-            self.bindings = bindings
-        def pack(self, *_, **__):
-            pass
-        def bind(self, event, callback):
-            self.bindings[event] = callback
 
     class DummyWidget:
         def __init__(self, *_, **__):
@@ -82,7 +73,7 @@ def test_tunnel_list_double_click_triggers_edit(monkeypatch) -> None:
     fake_tk = SimpleNamespace(
         PanedWindow=DummyPanedWindow,
         Frame=DummyWidget,
-        Listbox=DummyListbox,
+        Listbox=DummyWidget,
         Text=DummyWidget,
         Button=DummyButton,
         END="end",
@@ -105,6 +96,6 @@ def test_tunnel_list_double_click_triggers_edit(monkeypatch) -> None:
     app._on_edit_tunnel = lambda: calls.append(True)
 
     event_name = cfg["events"]["double_click"]
-    assert event_name in bindings
-    bindings[event_name](None)
+    assert event_name in app.tunnel_list.bindings
+    app.tunnel_list.bindings[event_name](None)
     assert calls

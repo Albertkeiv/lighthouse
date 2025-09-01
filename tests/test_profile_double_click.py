@@ -20,11 +20,10 @@ def _load_cfg() -> configparser.ConfigParser:
 def test_profile_list_double_click_triggers_edit(monkeypatch) -> None:
     """Double-clicking a profile should invoke the edit handler."""
     cfg = _load_cfg()
-    bindings: dict = {}
 
     class DummyTreeview:
         def __init__(self, *_, **__):
-            self.bindings = bindings
+            self.bindings = {}
             self.columns = {}
         def pack(self, *_, **__):
             pass
@@ -101,6 +100,6 @@ def test_profile_list_double_click_triggers_edit(monkeypatch) -> None:
     app._on_edit_profile = lambda: calls.append(True)
 
     event_name = cfg["events"]["double_click"]
-    assert event_name in bindings
-    bindings[event_name](None)
+    assert event_name in app.profile_list.bindings
+    app.profile_list.bindings[event_name](None)
     assert calls
