@@ -1,12 +1,12 @@
 import configparser
 import logging
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Optional
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 from ipaddress import ip_address
 
-from .profiles import create_profile, load_profiles, delete_profile
+from .profiles import create_profile, load_profiles, delete_profile, update_profile
 
 PANE_LAYOUT_FILE = "pane_layout.ini"
 
@@ -83,12 +83,19 @@ def save_pane_layout(coords: List[int], file_path: Union[str, Path] = PANE_LAYOU
 
 
 class ProfileDialog(simpledialog.Dialog):
-    """Dialog window for collecting profile parameters."""
+    """Dialog window for collecting or editing profile parameters."""
 
-    def __init__(self, parent: tk.Tk, existing_profiles: List[dict]):
+    def __init__(
+        self,
+        parent: tk.Tk,
+        existing_profiles: List[dict],
+        profile: Optional[dict] = None,
+    ):
         self.existing_profiles = existing_profiles
+        self.profile = profile
         self.logger = logging.getLogger(__name__)
-        super().__init__(parent, "Create Profile")
+        title = "Edit Profile" if profile is not None else "Create Profile"
+        super().__init__(parent, title)
 
     def body(self, master: tk.Misc) -> tk.Entry:
         tk.Label(master, text="Profile name:").grid(row=0, column=0, sticky="w")
@@ -99,7 +106,8 @@ class ProfileDialog(simpledialog.Dialog):
         self.key_entry = tk.Entry(master)
         self.key_entry.grid(row=1, column=1)
 
-        self.auto_var = tk.BooleanVar(value=True)
+        auto_default = True if self.profile is None else False
+        self.auto_var = tk.BooleanVar(value=auto_default)
         auto_chk = tk.Checkbutton(
             master,
             text="Assign IP automatically",
@@ -111,7 +119,12 @@ class ProfileDialog(simpledialog.Dialog):
         tk.Label(master, text="IP address:").grid(row=3, column=0, sticky="w")
         self.ip_entry = tk.Entry(master)
         self.ip_entry.grid(row=3, column=1)
-        self.ip_entry.configure(state="disabled")
+        self.ip_entry.configure(state="disabled" if auto_default else "normal")
+
+        if self.profile is not None:
+            self.name_entry.insert(0, self.profile.get("name", ""))
+            self.key_entry.insert(0, self.profile.get("ssh_key", ""))
+            self.ip_entry.insert(0, self.profile.get("ip", ""))
 
         return self.name_entry
 
@@ -131,7 +144,11 @@ class ProfileDialog(simpledialog.Dialog):
         if not name:
             messagebox.showerror("Error", "Profile name must be provided")
             return False
-        if any(p.get("name") == name for p in self.existing_profiles):
+        existing_name = (self.profile or {}).get("name")
+        if any(
+            p.get("name") == name and p.get("name") != existing_name
+            for p in self.existing_profiles
+        ):
             messagebox.showerror("Error", f"Profile '{name}' already exists")
             self.logger.warning("Profile creation aborted: name '%s' exists", name)
             return False
@@ -148,6 +165,12 @@ class ProfileDialog(simpledialog.Dialog):
                 ip_address(ip_str)
             except ValueError:
                 messagebox.showerror("Error", f"Invalid IP address: {ip_str}")
+                return False
+            if any(
+                p.get("ip") == ip_str and p.get("name") != existing_name
+                for p in self.existing_profiles
+            ):
+                messagebox.showerror("Error", f"IP address {ip_str} is already in use")
                 return False
         return True
 
@@ -214,6 +237,10 @@ class LighthouseApp:
             profile_frame, text="New Profile", command=self._on_new_profile
         )
         new_profile_btn.pack(fill="x")
+        edit_btn = tk.Button(
+            profile_frame, text="Edit Profile", command=self._on_edit_profile
+        )
+        edit_btn.pack(fill="x")
         delete_btn = tk.Button(
             profile_frame, text="Delete Profile", command=self._on_delete_profile
         )
@@ -330,6 +357,44 @@ class LighthouseApp:
             messagebox.showinfo("Success", f"Profile '{profile['name']}' created")
         except Exception as exc:
             self.logger.exception("Failed to create profile: %s", exc)
+            messagebox.showerror("Error", str(exc))
+
+    def _on_edit_profile(self) -> None:
+        """Triggered when the 'Edit Profile' button is pressed."""
+        self.logger.info("Profile edit requested")
+        selection = self.profile_list.curselection()
+        if not selection:
+            messagebox.showwarning("No selection", "Please select a profile to edit.")
+            self.logger.info("Profile edit cancelled: no profile selected")
+            return
+        index = selection[0]
+        value = self.profile_list.get(index)
+        name = value.split(" (", 1)[0]
+        try:
+            profiles = load_profiles()
+            profile = next((p for p in profiles if p.get("name") == name), None)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to load profiles for edit: %s", exc)
+            messagebox.showerror("Error", "Failed to load profiles")
+            return
+        if profile is None:
+            messagebox.showerror("Error", f"Profile '{name}' not found")
+            self.logger.warning("Profile '%s' not found during edit", name)
+            return
+        dialog = ProfileDialog(self.root, profiles, profile)
+        if not getattr(dialog, "result", None):
+            self.logger.info("Profile edit cancelled by user")
+            return
+        new_name, key_path, ip = dialog.result
+        try:
+            updated = update_profile(name, new_name, key_path, ip)
+            display = f"{updated['name']} ({updated['ip']})"
+            self.profile_list.delete(index)
+            self.profile_list.insert(index, display)
+            messagebox.showinfo("Success", f"Profile '{updated['name']}' updated")
+            self.logger.info("Profile '%s' updated", updated['name'])
+        except Exception as exc:
+            self.logger.exception("Failed to update profile: %s", exc)
             messagebox.showerror("Error", str(exc))
 
     def _on_delete_profile(self) -> None:

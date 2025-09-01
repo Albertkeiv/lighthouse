@@ -10,6 +10,7 @@ from lighthouse_app.profiles import (
     create_profile,
     load_profiles,
     delete_profile,
+    update_profile,
     PROFILES_FILE,
 )
 
@@ -113,3 +114,33 @@ def test_delete_nonexistent_profile(tmp_path):
     assert removed is False
     profiles = load_profiles(profiles_file)
     assert len(profiles) == 1
+
+
+def test_update_existing_profile(tmp_path):
+    cfg = _load_cfg()
+    profiles_file = tmp_path / PROFILES_FILE
+
+    # Create original profile
+    key_original = tmp_path / cfg["profile1"]["ssh_key_filename"]
+    key_original.touch()
+    create_profile(cfg["profile1"]["name"], key_original, file_path=profiles_file)
+
+    # Prepare new key and update
+    key_updated = tmp_path / cfg["updated_profile"]["ssh_key_filename"]
+    key_updated.touch()
+    updated = update_profile(
+        cfg["profile1"]["name"],
+        cfg["updated_profile"]["name"],
+        key_updated,
+        cfg["updated_profile"]["ip"],
+        file_path=profiles_file,
+    )
+
+    assert updated["name"] == cfg["updated_profile"]["name"]
+    assert updated["ssh_key"] == str(key_updated)
+    assert updated["ip"] == cfg["expected"]["updated_ip"]
+
+    stored = load_profiles(profiles_file)
+    assert len(stored) == 1
+    assert stored[0]["name"] == cfg["updated_profile"]["name"]
+    assert stored[0]["ip"] == cfg["expected"]["updated_ip"]
