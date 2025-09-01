@@ -325,7 +325,7 @@ class SSHKeyManager:
                 tk.END,
                 values=(key["name"], key.get("description", "")),
             )
-            messagebox.showinfo("Success", f"SSH key '{key['name']}' added")
+            self.logger.info("SSH key '%s' added", key["name"])
         except Exception as exc:
             self.logger.exception("Failed to add SSH key: %s", exc)
             messagebox.showerror("Error", str(exc))
@@ -363,9 +363,6 @@ class SSHKeyManager:
             self.key_table.item(
                 item_id,
                 values=(updated["name"], updated.get("description", "")),
-            )
-            messagebox.showinfo(
-                "Success", f"SSH key '{updated['name']}' updated"
             )
             self.logger.info("SSH key '%s' updated", updated["name"])
         except Exception as exc:
