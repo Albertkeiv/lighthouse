@@ -223,8 +223,22 @@ class LighthouseApp:
         if not key_path:
             self.logger.info("Profile creation cancelled: no SSH key path provided")
             return
+        use_auto = messagebox.askyesno(
+            "IP Assignment", "Assign IP address automatically?"
+        )
+        if use_auto:
+            ip = None
+            self.logger.info("User opted for automatic IP assignment")
+        else:
+            ip = simpledialog.askstring("IP Address", "Enter IP address:")
+            if not ip:
+                self.logger.info(
+                    "Profile creation cancelled: no IP address provided"
+                )
+                return
+            self.logger.info("User provided manual IP %s", ip)
         try:
-            profile = create_profile(name, key_path)
+            profile = create_profile(name, key_path, ip)
             display = f"{profile['name']} ({profile['ip']})"
             self.profile_list.insert(tk.END, display)
             messagebox.showinfo("Success", f"Profile '{profile['name']}' created")
