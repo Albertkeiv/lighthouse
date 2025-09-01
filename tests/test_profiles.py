@@ -6,7 +6,12 @@ import sys
 # Ensure application importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from lighthouse_app.profiles import create_profile, load_profiles, PROFILES_FILE
+from lighthouse_app.profiles import (
+    create_profile,
+    load_profiles,
+    delete_profile,
+    PROFILES_FILE,
+)
 
 
 def _load_cfg() -> configparser.ConfigParser:
@@ -73,3 +78,38 @@ def test_manual_ip_duplicate_error(tmp_path):
             ip=manual_ip,
             file_path=profiles_file,
         )
+
+
+def test_delete_profile(tmp_path):
+    cfg = _load_cfg()
+    profiles_file = tmp_path / PROFILES_FILE
+
+    key1 = tmp_path / cfg["profile1"]["ssh_key_filename"]
+    key1.touch()
+    create_profile(cfg["profile1"]["name"], key1, file_path=profiles_file)
+
+    key2 = tmp_path / cfg["profile2"]["ssh_key_filename"]
+    key2.touch()
+    create_profile(cfg["profile2"]["name"], key2, file_path=profiles_file)
+
+    removed = delete_profile(cfg["profile1"]["name"], file_path=profiles_file)
+    assert removed is True
+    remaining = load_profiles(profiles_file)
+    assert len(remaining) == 1
+    assert remaining[0]["name"] == cfg["profile2"]["name"]
+
+
+def test_delete_nonexistent_profile(tmp_path):
+    cfg = _load_cfg()
+    profiles_file = tmp_path / PROFILES_FILE
+
+    key1 = tmp_path / cfg["profile1"]["ssh_key_filename"]
+    key1.touch()
+    create_profile(cfg["profile1"]["name"], key1, file_path=profiles_file)
+
+    removed = delete_profile(
+        cfg["nonexistent_profile"]["name"], file_path=profiles_file
+    )
+    assert removed is False
+    profiles = load_profiles(profiles_file)
+    assert len(profiles) == 1
