@@ -313,6 +313,8 @@ class TunnelDialog(simpledialog.Dialog):
     ):
         self.existing_tunnels = existing_tunnels
         self.tunnel = tunnel
+        # Store DNS name entered by user; populated during validation
+        self.dns_name = ""
         self.logger = logging.getLogger(__name__)
         title = "Edit Tunnel" if tunnel is not None else "New Tunnel"
         super().__init__(parent, title)
@@ -334,11 +336,17 @@ class TunnelDialog(simpledialog.Dialog):
         self.remote_entry = tk.Entry(master)
         self.remote_entry.grid(row=3, column=1)
 
+        tk.Label(master, text="DNS name:").grid(row=4, column=0, sticky="w")
+        # DNS name is optional; it helps users recall remote service
+        self.dns_entry = tk.Entry(master)
+        self.dns_entry.grid(row=4, column=1)
+
         if self.tunnel is not None:
             self.name_entry.insert(0, self.tunnel.get("name", ""))
             self.local_entry.insert(0, str(self.tunnel.get("local_port", "")))
             self.host_entry.insert(0, self.tunnel.get("remote_host", ""))
             self.remote_entry.insert(0, str(self.tunnel.get("remote_port", "")))
+            self.dns_entry.insert(0, self.tunnel.get("dns_name", ""))
 
         return self.name_entry
 
@@ -347,6 +355,8 @@ class TunnelDialog(simpledialog.Dialog):
         local = self.local_entry.get().strip()
         host = self.host_entry.get().strip()
         remote = self.remote_entry.get().strip()
+        # DNS name can be left empty by the user
+        self.dns_name = self.dns_entry.get().strip()
 
         if not all([name, local, host, remote]):
             messagebox.showerror("Error", "All fields must be provided")
@@ -369,7 +379,7 @@ class TunnelDialog(simpledialog.Dialog):
                 return False
             if not (1 <= port <= 65535):
                 messagebox.showerror(
-                    "Error", f"{label} must be between 1 and 65535"
+                    "Error", f"{label} must be between 1 and 65535",
                 )
                 return False
 
@@ -380,8 +390,11 @@ class TunnelDialog(simpledialog.Dialog):
         local = int(self.local_entry.get().strip())
         host = self.host_entry.get().strip()
         remote = int(self.remote_entry.get().strip())
-        self.result = (name, local, host, remote)
-        self.logger.info("Tunnel dialog confirmed for '%s'", name)
+        dns = self.dns_name
+        self.result = (name, local, host, remote, dns)
+        self.logger.info(
+            "Tunnel dialog confirmed for '%s' with DNS '%s'", name, dns
+        )
 
     def cancel(self, event=None) -> None:  # pragma: no cover - GUI side effect
         self.logger.info("Tunnel dialog cancelled")
@@ -861,12 +874,17 @@ class LighthouseApp:
         if not getattr(dialog, "result", None):
             self.logger.info("Tunnel creation cancelled by user")
             return
-        name, local_port, host, remote_port = dialog.result
+        name, local_port, host, remote_port, dns_name = dialog.result
         try:
-            tunnel = add_tunnel(profile_name, name, local_port, host, remote_port)
+            tunnel = add_tunnel(
+                profile_name, name, local_port, host, remote_port, dns_name
+            )
             self.tunnel_list.insert(tk.END, tunnel["name"])
             self.logger.info(
-                "Tunnel '%s' added to profile '%s'", name, profile_name
+                "Tunnel '%s' added to profile '%s' with DNS '%s'",
+                name,
+                profile_name,
+                dns_name,
             )
         except Exception as exc:
             self.logger.exception("Failed to add tunnel: %s", exc)
@@ -921,15 +939,24 @@ class LighthouseApp:
         if not getattr(dialog, "result", None):
             self.logger.info("Tunnel edit cancelled by user")
             return
-        new_name, local_port, host, remote_port = dialog.result
+        new_name, local_port, host, remote_port, dns_name = dialog.result
         try:
             update_tunnel(
-                profile_name, tunnel_name, new_name, local_port, host, remote_port
+                profile_name,
+                tunnel_name,
+                new_name,
+                local_port,
+                host,
+                remote_port,
+                dns_name,
             )
             self.tunnel_list.delete(index)
             self.tunnel_list.insert(index, new_name)
             self.logger.info(
-                "Tunnel '%s' updated in profile '%s'", tunnel_name, profile_name
+                "Tunnel '%s' updated in profile '%s' with DNS '%s'",
+                tunnel_name,
+                profile_name,
+                dns_name,
             )
         except Exception as exc:
             self.logger.exception("Failed to update tunnel: %s", exc)

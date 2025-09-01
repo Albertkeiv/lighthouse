@@ -58,9 +58,14 @@ def test_new_tunnel_skips_success_popup(monkeypatch) -> None:
                 int(cfg["tunnel"]["local_port"]),
                 cfg["tunnel"]["remote_host"],
                 int(cfg["tunnel"]["remote_port"]),
+                cfg["tunnel"]["dns_name"],
             )
     monkeypatch.setattr(ui, "TunnelDialog", DummyDialog)
-    monkeypatch.setattr(ui, "add_tunnel", lambda *a, **k: {"name": cfg["tunnel"]["name"]})
+    
+    def _add_tunnel(profile, name, local, host, remote, dns, *_, **__):
+        assert dns == cfg["tunnel"]["dns_name"]
+        return {"name": cfg["tunnel"]["name"]}
+    monkeypatch.setattr(ui, "add_tunnel", _add_tunnel)
 
     called = {}
     monkeypatch.setattr(ui.messagebox, "showinfo", lambda *a, **k: called.setdefault("showinfo", True))
@@ -109,6 +114,7 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
                         "local_port": int(cfg["tunnel"]["local_port"]),
                         "remote_host": cfg["tunnel"]["remote_host"],
                         "remote_port": int(cfg["tunnel"]["remote_port"]),
+                        "dns_name": cfg["tunnel"]["dns_name"],
                     }
                 ],
             }
@@ -122,9 +128,14 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
                 int(cfg["updated_tunnel"]["local_port"]),
                 cfg["updated_tunnel"]["remote_host"],
                 int(cfg["updated_tunnel"]["remote_port"]),
+                cfg["updated_tunnel"]["dns_name"],
             )
     monkeypatch.setattr(ui, "TunnelDialog", DummyDialog)
-    monkeypatch.setattr(ui, "update_tunnel", lambda *a, **k: None)
+    
+    def _update_tunnel(profile, orig, new, local, host, remote, dns, *_, **__):
+        assert dns == cfg["updated_tunnel"]["dns_name"]
+        return None
+    monkeypatch.setattr(ui, "update_tunnel", _update_tunnel)
 
     called = {}
     monkeypatch.setattr(ui.messagebox, "showinfo", lambda *a, **k: called.setdefault("showinfo", True))
