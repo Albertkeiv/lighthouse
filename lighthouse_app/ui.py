@@ -270,6 +270,9 @@ class SSHKeyManager:
         self.logger = logging.getLogger(__name__)
         self.top = tk.Toplevel(parent)
         self.top.title("SSH Keys")
+        # Make the management window wider for better readability of
+        # key names and their descriptions.
+        self.top.geometry("600x400")
 
         self.key_list = tk.Listbox(self.top)
         self.key_list.pack(fill=tk.BOTH, expand=True)
@@ -287,7 +290,8 @@ class SSHKeyManager:
         try:
             keys = load_ssh_keys()
             for key in keys:
-                self.key_list.insert(tk.END, key["name"])
+                display = f"{key['name']} - {key.get('description', '')}"
+                self.key_list.insert(tk.END, display)
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to load SSH keys: %s", exc)
 
@@ -306,7 +310,8 @@ class SSHKeyManager:
         name, path, desc = dialog.result
         try:
             key = create_ssh_key(name, path, desc)
-            self.key_list.insert(tk.END, key["name"])
+            display = f"{key['name']} - {key.get('description', '')}"
+            self.key_list.insert(tk.END, display)
             messagebox.showinfo("Success", f"SSH key '{key['name']}' added")
         except Exception as exc:
             self.logger.exception("Failed to add SSH key: %s", exc)
@@ -320,7 +325,8 @@ class SSHKeyManager:
             self.logger.info("SSH key edit cancelled: no key selected")
             return
         index = selection[0]
-        name = self.key_list.get(index)
+        selected = self.key_list.get(index)
+        name = selected.split(" - ", 1)[0]
         try:
             keys = load_ssh_keys()
             key = next((k for k in keys if k.get("name") == name), None)
@@ -339,8 +345,9 @@ class SSHKeyManager:
         new_name, path, desc = dialog.result
         try:
             updated = update_ssh_key(name, new_name, path, desc)
+            display = f"{updated['name']} - {updated.get('description', '')}"
             self.key_list.delete(index)
-            self.key_list.insert(index, updated["name"])
+            self.key_list.insert(index, display)
             messagebox.showinfo("Success", f"SSH key '{updated['name']}' updated")
             self.logger.info("SSH key '%s' updated", updated["name"])
         except Exception as exc:
@@ -355,7 +362,8 @@ class SSHKeyManager:
             self.logger.info("SSH key deletion cancelled: no key selected")
             return
         index = selection[0]
-        name = self.key_list.get(index)
+        selected = self.key_list.get(index)
+        name = selected.split(" - ", 1)[0]
         if not messagebox.askyesno("Confirm", f"Delete SSH key '{name}'?"):
             self.logger.info("SSH key deletion cancelled by user")
             return
