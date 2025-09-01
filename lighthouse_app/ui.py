@@ -48,9 +48,10 @@ class LighthouseApp:
         self.root.columnconfigure(0, weight=1, minsize=150)
         self.root.columnconfigure(1, weight=1, minsize=150)
         self.root.columnconfigure(2, weight=3, minsize=300)
-        self.root.rowconfigure(0, weight=3)
-        self.root.rowconfigure(1, weight=1)
-        self.root.rowconfigure(2, weight=0)
+        # Top row holds the main content and expands to fill extra space.
+        self.root.rowconfigure(0, weight=1)
+        self.root.rowconfigure(1, weight=0)
+
 
         # Profiles list
         profile_frame = tk.Frame(self.root, bd=2, relief=tk.GROOVE)
@@ -94,7 +95,7 @@ class LighthouseApp:
         settings_btn = tk.Button(
             self.root, text="Program Settings", command=self._on_settings
         )
-        settings_btn.grid(row=2, column=2, sticky="e", padx=5, pady=5)
+        settings_btn.grid(row=1, column=2, sticky="ew", padx=5, pady=5)
 
     def _on_profile_select(self, event: tk.Event) -> None:
         """Handle profile selection event."""
