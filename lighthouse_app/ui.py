@@ -50,8 +50,8 @@ class LighthouseApp:
         self.root.columnconfigure(2, weight=3, minsize=300)
         # Top row holds the main content and expands to fill extra space.
         self.root.rowconfigure(0, weight=1)
-        # Bottom row is reserved for control buttons only; keep its height minimal.
         self.root.rowconfigure(1, weight=0)
+
 
         # Profiles list
         profile_frame = tk.Frame(self.root, bd=2, relief=tk.GROOVE)
