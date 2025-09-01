@@ -18,25 +18,31 @@ def _load_cfg() -> configparser.ConfigParser:
     return cfg
 
 
-def test_manager_displays_description_and_sets_width(monkeypatch) -> None:
-    """List should contain name and description and window should be wider."""
+def test_manager_uses_table_and_double_click(monkeypatch) -> None:
+    """Treeview should show name and description and support double-click edit."""
     cfg = _load_cfg()
-    inserted = []
-    geometry_calls = []
+    inserted: list = []
+    headings: dict = {}
+    bindings: dict = {}
+    geometry_calls: list = []
 
-    class DummyListbox:
-        def __init__(self, master=None):
+    class DummyTreeview:
+        def __init__(self, master=None, columns=(), show=""):
             pass
+        def heading(self, column, text=""):
+            headings[column] = text
         def pack(self, *args, **kwargs):
             pass
-        def insert(self, index, item):
-            inserted.append(item)
-        def curselection(self):
+        def insert(self, parent, index, values=()):
+            inserted.append(values)
+        def bind(self, event, callback):
+            bindings[event] = callback
+        def selection(self):
             return ()
-        def get(self, index):
-            return inserted[index]
-        def delete(self, index):
-            inserted.pop(index)
+        def item(self, item_id):
+            return {"values": ()}
+        def delete(self, item_id):
+            pass
 
     class DummyButton:
         def __init__(self, master=None, text="", command=None):
@@ -54,13 +60,14 @@ def test_manager_displays_description_and_sets_width(monkeypatch) -> None:
 
     fake_tk = SimpleNamespace(
         Toplevel=DummyToplevel,
-        Listbox=DummyListbox,
         Button=DummyButton,
         BOTH="both",
         END="end",
     )
+    fake_ttk = SimpleNamespace(Treeview=DummyTreeview)
 
     monkeypatch.setattr(ui, "tk", fake_tk)
+    monkeypatch.setattr(ui, "ttk", fake_ttk)
     monkeypatch.setattr(
         ui,
         "load_ssh_keys",
@@ -72,9 +79,17 @@ def test_manager_displays_description_and_sets_width(monkeypatch) -> None:
         ],
     )
 
-    ui.SSHKeyManager(None)
+    manager = ui.SSHKeyManager(None)
 
-    expected_item = f"{cfg['key1']['name']} - {cfg['key1']['description']}"
-    assert inserted == [expected_item]
+    expected_values = (cfg["key1"]["name"], cfg["key1"]["description"])
+    assert inserted == [expected_values]
+    assert headings["name"] == "Name"
+    assert headings["description"] == "Description"
     expected_width = cfg["ui"]["window_width"]
     assert any(g.startswith(expected_width) for g in geometry_calls)
+
+    # Verify double-click triggers edit
+    calls = []
+    manager._on_edit = lambda: calls.append(True)
+    bindings["<Double-1>"](None)
+    assert calls

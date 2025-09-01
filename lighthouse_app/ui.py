@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 from typing import List, Union, Optional
 import tkinter as tk
-from tkinter import messagebox, simpledialog
+from tkinter import messagebox, simpledialog, ttk
 from ipaddress import ip_address
 
 from .profiles import create_profile, load_profiles, delete_profile, update_profile
@@ -274,8 +274,15 @@ class SSHKeyManager:
         # key names and their descriptions.
         self.top.geometry("600x400")
 
-        self.key_list = tk.Listbox(self.top)
-        self.key_list.pack(fill=tk.BOTH, expand=True)
+        self.key_table = ttk.Treeview(
+            self.top,
+            columns=("name", "description"),
+            show="headings",
+        )
+        self.key_table.heading("name", text="Name")
+        self.key_table.heading("description", text="Description")
+        self.key_table.pack(fill=tk.BOTH, expand=True)
+        self.key_table.bind("<Double-1>", self._on_double_click)
 
         add_btn = tk.Button(self.top, text="Add SSH key", command=self._on_add)
         add_btn.pack(fill="x")
@@ -290,8 +297,11 @@ class SSHKeyManager:
         try:
             keys = load_ssh_keys()
             for key in keys:
-                display = f"{key['name']} - {key.get('description', '')}"
-                self.key_list.insert(tk.END, display)
+                self.key_table.insert(
+                    "",
+                    tk.END,
+                    values=(key["name"], key.get("description", "")),
+                )
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to load SSH keys: %s", exc)
 
@@ -310,8 +320,11 @@ class SSHKeyManager:
         name, path, desc = dialog.result
         try:
             key = create_ssh_key(name, path, desc)
-            display = f"{key['name']} - {key.get('description', '')}"
-            self.key_list.insert(tk.END, display)
+            self.key_table.insert(
+                "",
+                tk.END,
+                values=(key["name"], key.get("description", "")),
+            )
             messagebox.showinfo("Success", f"SSH key '{key['name']}' added")
         except Exception as exc:
             self.logger.exception("Failed to add SSH key: %s", exc)
@@ -319,14 +332,16 @@ class SSHKeyManager:
 
     def _on_edit(self) -> None:
         self.logger.info("SSH key edit requested")
-        selection = self.key_list.curselection()
+        selection = self.key_table.selection()
         if not selection:
-            messagebox.showwarning("No selection", "Please select an SSH key to edit.")
+            messagebox.showwarning(
+                "No selection", "Please select an SSH key to edit."
+            )
             self.logger.info("SSH key edit cancelled: no key selected")
             return
-        index = selection[0]
-        selected = self.key_list.get(index)
-        name = selected.split(" - ", 1)[0]
+        item_id = selection[0]
+        item = self.key_table.item(item_id)
+        name = item["values"][0]
         try:
             keys = load_ssh_keys()
             key = next((k for k in keys if k.get("name") == name), None)
@@ -345,37 +360,48 @@ class SSHKeyManager:
         new_name, path, desc = dialog.result
         try:
             updated = update_ssh_key(name, new_name, path, desc)
-            display = f"{updated['name']} - {updated.get('description', '')}"
-            self.key_list.delete(index)
-            self.key_list.insert(index, display)
-            messagebox.showinfo("Success", f"SSH key '{updated['name']}' updated")
+            self.key_table.item(
+                item_id,
+                values=(updated["name"], updated.get("description", "")),
+            )
+            messagebox.showinfo(
+                "Success", f"SSH key '{updated['name']}' updated"
+            )
             self.logger.info("SSH key '%s' updated", updated["name"])
         except Exception as exc:
             self.logger.exception("Failed to update SSH key: %s", exc)
             messagebox.showerror("Error", str(exc))
 
+    def _on_double_click(self, event) -> None:  # pragma: no cover - GUI event
+        self.logger.info("SSH key double-click event")
+        self._on_edit()
+
     def _on_delete(self) -> None:
         self.logger.info("SSH key deletion requested")
-        selection = self.key_list.curselection()
+        selection = self.key_table.selection()
         if not selection:
-            messagebox.showwarning("No selection", "Please select an SSH key to delete.")
+            messagebox.showwarning(
+                "No selection", "Please select an SSH key to delete."
+            )
             self.logger.info("SSH key deletion cancelled: no key selected")
             return
-        index = selection[0]
-        selected = self.key_list.get(index)
-        name = selected.split(" - ", 1)[0]
+        item_id = selection[0]
+        item = self.key_table.item(item_id)
+        name = item["values"][0]
         if not messagebox.askyesno("Confirm", f"Delete SSH key '{name}'?"):
             self.logger.info("SSH key deletion cancelled by user")
             return
         try:
             removed = delete_ssh_key(name)
             if removed:
-                self.key_list.delete(index)
+                self.key_table.delete(item_id)
                 messagebox.showinfo("Deleted", f"SSH key '{name}' deleted")
                 self.logger.info("SSH key '%s' deleted", name)
             else:
                 messagebox.showwarning("Not found", f"SSH key '{name}' not found")
-                self.logger.warning("SSH key '%s' not found during deletion", name)
+                self.logger.warning(
+                    "SSH key '%s' not found during deletion", name
+                )
         except Exception as exc:
             self.logger.exception("Failed to delete SSH key: %s", exc)
             messagebox.showerror("Error", str(exc))
