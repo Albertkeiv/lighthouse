@@ -109,3 +109,36 @@ def create_profile(
     save_profiles(profiles, file_path)
     logger.info("Profile '%s' created with IP %s", name, ip_str)
     return profile
+
+
+def delete_profile(name: str, file_path: Union[str, Path] = PROFILES_FILE) -> bool:
+    """Delete a profile by name.
+
+    Parameters
+    ----------
+    name: str
+        Name of the profile to remove.
+    file_path: str | Path, optional
+        Path to the profiles JSON file. Defaults to ``PROFILES_FILE``.
+
+    Returns
+    -------
+    bool
+        ``True`` if the profile existed and was removed, ``False`` otherwise.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info("Request to delete profile '%s'", name)
+
+    if not name:
+        raise ValueError("Profile name must be provided")
+
+    profiles = load_profiles(file_path)
+    remaining = [p for p in profiles if p.get("name") != name]
+
+    if len(remaining) == len(profiles):
+        logger.warning("Profile '%s' not found", name)
+        return False
+
+    save_profiles(remaining, file_path)
+    logger.info("Profile '%s' deleted", name)
+    return True

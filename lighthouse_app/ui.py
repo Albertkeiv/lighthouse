@@ -5,7 +5,7 @@ from typing import List, Union
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 
-from .profiles import create_profile, load_profiles
+from .profiles import create_profile, load_profiles, delete_profile
 
 PANE_LAYOUT_FILE = "pane_layout.ini"
 
@@ -130,6 +130,10 @@ class LighthouseApp:
         self.profile_list = tk.Listbox(profile_frame)
         self.profile_list.pack(fill=tk.BOTH, expand=True)
         self.profile_list.bind("<<ListboxSelect>>", self._on_profile_select)
+        delete_btn = tk.Button(
+            profile_frame, text="Delete Profile", command=self._on_delete_profile
+        )
+        delete_btn.pack(fill="x")
         self._load_profiles_into_list()
 
         # Tunnels list
@@ -244,6 +248,33 @@ class LighthouseApp:
             messagebox.showinfo("Success", f"Profile '{profile['name']}' created")
         except Exception as exc:
             self.logger.exception("Failed to create profile: %s", exc)
+            messagebox.showerror("Error", str(exc))
+
+    def _on_delete_profile(self) -> None:
+        """Triggered when the 'Delete Profile' button is pressed."""
+        self.logger.info("Profile deletion requested")
+        selection = self.profile_list.curselection()
+        if not selection:
+            messagebox.showwarning("No selection", "Please select a profile to delete.")
+            self.logger.info("Profile deletion cancelled: no profile selected")
+            return
+        index = selection[0]
+        value = self.profile_list.get(index)
+        name = value.split(" (", 1)[0]
+        if not messagebox.askyesno("Confirm", f"Delete profile '{name}'?"):
+            self.logger.info("Profile deletion cancelled by user")
+            return
+        try:
+            removed = delete_profile(name)
+            if removed:
+                self.profile_list.delete(index)
+                messagebox.showinfo("Deleted", f"Profile '{name}' deleted")
+                self.logger.info("Profile '%s' deleted", name)
+            else:
+                messagebox.showwarning("Not found", f"Profile '{name}' not found")
+                self.logger.warning("Profile '%s' not found during deletion", name)
+        except Exception as exc:
+            self.logger.exception("Failed to delete profile: %s", exc)
             messagebox.showerror("Error", str(exc))
 
     def _on_new_tunnel(self) -> None:
