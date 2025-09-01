@@ -50,6 +50,14 @@ def test_restore_pane_layout_after_panes(monkeypatch):
         def insert(self, *args, **kwargs):
             pass
 
+        def after(self, delay, callback, *args):
+            """Immediately invoke callbacks scheduled with 'after'."""
+            callback(*args)
+
+        def update_idletasks(self):
+            """Stub to mirror tk widget method in tests."""
+            pass
+
     class DummyPanedWindow(DummyWidget):
         def __init__(self, root, **kwargs):
             super().__init__(root, **kwargs)

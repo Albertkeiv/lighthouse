@@ -144,7 +144,7 @@ class LighthouseApp:
 
         # Restore pane layout after all panes have been added.
         # Calling this earlier results in errors because sashes do not yet exist.
-        self._restore_pane_layout()
+        self.root.after(0, self._restore_pane_layout)
 
         self.status_text = tk.Text(info_frame, height=10)
         self.status_text.grid(row=0, column=0, sticky="nsew")
@@ -173,6 +173,8 @@ class LighthouseApp:
     def _restore_pane_layout(self) -> None:
         """Apply saved pane positions if available."""
         coords = load_pane_layout()
+        # Ensure geometry calculations are current before placing sashes.
+        self.root.update_idletasks()
         for idx, x in enumerate(coords):
             try:
                 self.top_pane.sash_place(idx, x, 0)
