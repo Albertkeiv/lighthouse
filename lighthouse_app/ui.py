@@ -1,7 +1,11 @@
+import configparser
 import logging
+from pathlib import Path
+from typing import List, Union
 import tkinter as tk
 from tkinter import messagebox
-import configparser
+
+PANE_LAYOUT_FILE = "pane_layout.ini"
 
 
 def geometry_from_config(cfg: configparser.ConfigParser) -> str:
@@ -26,6 +30,53 @@ def sash_width_from_config(cfg: configparser.ConfigParser) -> int:
     if width < 1:
         width = 1
     return width
+
+
+def load_pane_layout(file_path: Union[str, Path] = PANE_LAYOUT_FILE) -> List[int]:
+    """Load saved sash x-coordinates from a configuration file.
+
+    Parameters
+    ----------
+    file_path: str | Path
+        Path to the user-specific pane layout file.
+
+    Returns
+    -------
+    List[int]
+        List of x-coordinates for each sash. Empty if unavailable.
+    """
+    logger = logging.getLogger(__name__)
+    cfg = configparser.ConfigParser()
+    path = Path(file_path)
+    if not path.exists():
+        logger.info("Pane layout file %s not found", path)
+        return []
+    try:
+        cfg.read(path)
+        if not cfg.has_section("panes"):
+            logger.info("Pane layout file missing 'panes' section")
+            return []
+        coords = []
+        for key in sorted(cfg["panes"], key=lambda k: int(k.split("_")[-1])):
+            coords.append(cfg.getint("panes", key, fallback=0))
+        logger.info("Loaded pane layout: %s", coords)
+        return coords
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("Failed to load pane layout: %s", exc)
+        return []
+
+
+def save_pane_layout(coords: List[int], file_path: Union[str, Path] = PANE_LAYOUT_FILE) -> None:
+    """Persist sash x-coordinates to a configuration file."""
+    logger = logging.getLogger(__name__)
+    cfg = configparser.ConfigParser()
+    cfg["panes"] = {f"sash_{i}": str(x) for i, x in enumerate(coords)}
+    try:
+        with open(file_path, "w", encoding="utf-8") as handle:
+            cfg.write(handle)
+        logger.info("Saved pane layout: %s", coords)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("Failed to save pane layout: %s", exc)
 
 
 class LighthouseApp:
@@ -70,6 +121,7 @@ class LighthouseApp:
         )
         self.top_pane.grid(row=0, column=0, columnspan=3, sticky="nsew")
         self.top_pane.bind("<ButtonRelease-1>", self._on_pane_resize)
+        self._restore_pane_layout()
 
         # Profiles list
         profile_frame = tk.Frame(self.top_pane, bd=2, relief=tk.GROOVE)
@@ -115,6 +167,17 @@ class LighthouseApp:
         )
         settings_btn.grid(row=1, column=2, sticky="ew", padx=5, pady=5)
 
+    def _restore_pane_layout(self) -> None:
+        """Apply saved pane positions if available."""
+        coords = load_pane_layout()
+        for idx, x in enumerate(coords):
+            try:
+                self.top_pane.sash_place(idx, x, 0)
+            except Exception as exc:
+                self.logger.warning(
+                    "Failed to restore sash %s position: %s", idx, exc
+                )
+
     def _on_profile_select(self, event: tk.Event) -> None:
         """Handle profile selection event."""
         selection = event.widget.curselection()
@@ -147,13 +210,12 @@ class LighthouseApp:
         messagebox.showinfo("Info", "Settings functionality not yet implemented.")
 
     def _on_pane_resize(self, event: tk.Event) -> None:
-        """Log pane positions after user resizes the interface."""
+        """Log and persist pane positions after user resizes the interface."""
         try:
             pane_count = len(self.top_pane.panes())
-            coords = [
-                self.top_pane.sash_coord(i) for i in range(pane_count - 1)
-            ]
+            coords = [self.top_pane.sash_coord(i)[0] for i in range(pane_count - 1)]
             self.logger.info("Pane resized; sash coordinates: %s", coords)
+            save_pane_layout(coords)
         except Exception as exc:
             self.logger.exception("Failed to log pane resize: %s", exc)
 
