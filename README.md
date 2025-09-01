@@ -11,6 +11,21 @@
    python -m lighthouse_app.ui
    ```
 
+## Сборка в исполняемый файл для Windows
+
+Чтобы получить самостоятельный `.exe` файл, воспользуйтесь стандартным инструментом [PyInstaller](https://pyinstaller.org):
+
+1. Установите PyInstaller:
+   ```bash
+   pip install pyinstaller
+   ```
+2. В каталоге проекта выполните:
+   ```bash
+   pyinstaller --onefile --windowed --name Lighthouse lighthouse_app/ui.py
+   ```
+3. Готовый `Lighthouse.exe` появится в папке `dist`. Скопируйте рядом файл `config.ini` и при необходимости `pane_layout.ini`.
+4. Запустите `Lighthouse.exe` двойным щелчком или через командную строку.
+
 ## Тестирование
 
 Тесты используют значения из файла `config.ini` для проверки корректности конфигурации.
