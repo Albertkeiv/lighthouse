@@ -215,6 +215,7 @@ def add_tunnel(
     local_port: int,
     remote_host: str,
     remote_port: int,
+    dns_name: str = "",
     file_path: Union[str, Path] = PROFILES_FILE,
 ) -> Dict[str, Union[str, int]]:
     """Create and attach an SSH tunnel to a profile.
@@ -231,12 +232,18 @@ def add_tunnel(
         Remote host to connect to.
     remote_port: int
         Remote port to connect to.
+    dns_name: str, optional
+        DNS name associated with the tunnel. Can be an empty string.
     file_path: str | Path, optional
         Path to the profiles JSON file. Defaults to ``PROFILES_FILE``.
     """
     logger = logging.getLogger(__name__)
+    dns_name = "" if dns_name is None else str(dns_name).strip()
     logger.info(
-        "Request to add tunnel '%s' to profile '%s'", tunnel_name, profile_name
+        "Request to add tunnel '%s' to profile '%s' with DNS name '%s'",
+        tunnel_name,
+        profile_name,
+        dns_name,
     )
 
     if not profile_name or not tunnel_name:
@@ -272,6 +279,7 @@ def add_tunnel(
         "local_port": l_port,
         "remote_host": remote_host,
         "remote_port": r_port,
+        "dns_name": dns_name,
     }
     tunnels.append(tunnel)
     save_profiles(profiles, file_path)
@@ -286,12 +294,37 @@ def update_tunnel(
     local_port: int,
     remote_host: str,
     remote_port: int,
+    dns_name: str = "",
     file_path: Union[str, Path] = PROFILES_FILE,
 ) -> Dict[str, Union[str, int]]:
-    """Update parameters of an existing SSH tunnel."""
+    """Update parameters of an existing SSH tunnel.
+
+    Parameters
+    ----------
+    profile_name: str
+        Name of the profile to modify.
+    tunnel_name: str
+        Current name of the tunnel to update.
+    new_name: str
+        New unique name for the tunnel.
+    local_port: int
+        Local port for the tunnel.
+    remote_host: str
+        Remote host to connect to.
+    remote_port: int
+        Remote port to connect to.
+    dns_name: str, optional
+        DNS name associated with the tunnel. Can be an empty string.
+    file_path: str | Path, optional
+        Path to the profiles JSON file. Defaults to ``PROFILES_FILE``.
+    """
     logger = logging.getLogger(__name__)
+    dns_name = "" if dns_name is None else str(dns_name).strip()
     logger.info(
-        "Request to update tunnel '%s' in profile '%s'", tunnel_name, profile_name
+        "Request to update tunnel '%s' in profile '%s' with DNS name '%s'",
+        tunnel_name,
+        profile_name,
+        dns_name,
     )
 
     if not profile_name or not new_name or not tunnel_name:
@@ -337,6 +370,7 @@ def update_tunnel(
             "local_port": l_port,
             "remote_host": remote_host,
             "remote_port": r_port,
+            "dns_name": dns_name,
         }
     )
     save_profiles(profiles, file_path)

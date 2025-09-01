@@ -36,6 +36,7 @@ def test_add_tunnel_and_storage(tmp_path):
         int(cfg["tunnel"]["local_port"]),
         cfg["tunnel"]["remote_host"],
         int(cfg["tunnel"]["remote_port"]),
+        cfg["tunnel"]["dns_name"],
         file_path=profiles_file,
     )
 
@@ -47,6 +48,31 @@ def test_add_tunnel_and_storage(tmp_path):
     assert t["local_port"] == int(cfg["tunnel"]["local_port"])
     assert t["remote_host"] == cfg["tunnel"]["remote_host"]
     assert t["remote_port"] == int(cfg["tunnel"]["remote_port"])
+    assert t["dns_name"] == cfg["tunnel"]["dns_name"]
+
+
+def test_add_tunnel_without_dns_name(tmp_path):
+    cfg = _load_cfg()
+    profiles_file = tmp_path / PROFILES_FILE
+
+    key = tmp_path / cfg["profile"]["ssh_key_filename"]
+    key.touch()
+    create_profile(cfg["profile"]["name"], key, file_path=profiles_file)
+
+    add_tunnel(
+        cfg["profile"]["name"],
+        cfg["no_dns_tunnel"]["name"],
+        int(cfg["no_dns_tunnel"]["local_port"]),
+        cfg["no_dns_tunnel"]["remote_host"],
+        int(cfg["no_dns_tunnel"]["remote_port"]),
+        file_path=profiles_file,
+    )
+
+    stored = load_profiles(profiles_file)
+    tunnels = stored[0].get("tunnels", [])
+    assert len(tunnels) == 1
+    t = tunnels[0]
+    assert t["dns_name"] == cfg["no_dns_tunnel"]["dns_name"]
 
 
 def test_update_existing_tunnel(tmp_path):
@@ -63,6 +89,7 @@ def test_update_existing_tunnel(tmp_path):
         int(cfg["tunnel"]["local_port"]),
         cfg["tunnel"]["remote_host"],
         int(cfg["tunnel"]["remote_port"]),
+        cfg["tunnel"]["dns_name"],
         file_path=profiles_file,
     )
 
@@ -73,6 +100,7 @@ def test_update_existing_tunnel(tmp_path):
         int(cfg["updated_tunnel"]["local_port"]),
         cfg["updated_tunnel"]["remote_host"],
         int(cfg["updated_tunnel"]["remote_port"]),
+        cfg["updated_tunnel"]["dns_name"],
         file_path=profiles_file,
     )
 
@@ -82,6 +110,7 @@ def test_update_existing_tunnel(tmp_path):
     assert t["local_port"] == int(cfg["updated_tunnel"]["local_port"])
     assert t["remote_host"] == cfg["updated_tunnel"]["remote_host"]
     assert t["remote_port"] == int(cfg["updated_tunnel"]["remote_port"])
+    assert t["dns_name"] == cfg["updated_tunnel"]["dns_name"]
 
 
 def test_delete_tunnel(tmp_path):
@@ -98,6 +127,7 @@ def test_delete_tunnel(tmp_path):
         int(cfg["tunnel"]["local_port"]),
         cfg["tunnel"]["remote_host"],
         int(cfg["tunnel"]["remote_port"]),
+        cfg["tunnel"]["dns_name"],
         file_path=profiles_file,
     )
 
