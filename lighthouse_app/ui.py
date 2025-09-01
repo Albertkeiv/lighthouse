@@ -444,12 +444,19 @@ class LighthouseApp:
         self.top_pane.grid(row=0, column=0, sticky="nsew")
         self.top_pane.bind("<ButtonRelease-1>", self._on_pane_resize)
 
-        # Profiles list
+        # Profiles list displayed as a table for clarity
         profile_frame = tk.Frame(self.top_pane, bd=2, relief=tk.GROOVE)
         self.top_pane.add(profile_frame, minsize=100)
-        self.profile_list = tk.Listbox(profile_frame)
+        self.profile_list = ttk.Treeview(
+            profile_frame,
+            columns=("name", "ip"),
+            show="headings",
+        )
+        # Human friendly column headings
+        self.profile_list.heading("name", text="Name")
+        self.profile_list.heading("ip", text="Local IP Address")
         self.profile_list.pack(fill=tk.BOTH, expand=True)
-        self.profile_list.bind("<<ListboxSelect>>", self._on_profile_select)
+        self.profile_list.bind("<<TreeviewSelect>>", self._on_profile_select)
         self.profile_list.bind("<Double-1>", self._on_profile_double_click)
         new_profile_btn = tk.Button(
             profile_frame, text="New Profile", command=self._on_new_profile
@@ -529,11 +536,13 @@ class LighthouseApp:
 
     def _on_profile_select(self, event: tk.Event) -> None:
         """Handle profile selection event."""
-        selection = event.widget.curselection()
-        if selection:
-            index = selection[0]
-            value = event.widget.get(index)
-            self.logger.info("Profile selected: %s", value)
+        selected = event.widget.selection()
+        if selected:
+            values = event.widget.item(selected[0], "values")
+            if len(values) >= 2:
+                self.logger.info("Profile selected: %s (%s)", values[0], values[1])
+            else:  # pragma: no cover - defensive
+                self.logger.info("Profile selected: %s", values[0])
 
     def _on_profile_double_click(self, event: tk.Event) -> None:  # pragma: no cover - GUI event
         """Open the profile edit dialog when a profile is double-clicked."""
@@ -549,12 +558,15 @@ class LighthouseApp:
             self.logger.info("Tunnel selected: %s", value)
 
     def _load_profiles_into_list(self) -> None:
-        """Populate the profiles listbox from stored profiles."""
+        """Populate the profiles table from stored profiles."""
         try:
             profiles = load_profiles()
             for profile in profiles:
-                display = f"{profile['name']} ({profile['ip']})"
-                self.profile_list.insert(tk.END, display)
+                self.profile_list.insert(
+                    "",
+                    tk.END,
+                    values=(profile["name"], profile["ip"]),
+                )
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to load profiles: %s", exc)
 
@@ -575,9 +587,12 @@ class LighthouseApp:
         name, key_path, ip = dialog.result
         try:
             profile = create_profile(name, key_path, ip)
-            display = f"{profile['name']} ({profile['ip']})"
-            self.profile_list.insert(tk.END, display)
-            self.logger.info("Profile '%s' created", profile['name'])
+            self.profile_list.insert(
+                "",
+                tk.END,
+                values=(profile["name"], profile["ip"]),
+            )
+            self.logger.info("Profile '%s' created", profile["name"])
         except Exception as exc:
             self.logger.exception("Failed to create profile: %s", exc)
             messagebox.showerror("Error", str(exc))
@@ -585,14 +600,14 @@ class LighthouseApp:
     def _on_edit_profile(self) -> None:
         """Triggered when the 'Edit Profile' button is pressed."""
         self.logger.info("Profile edit requested")
-        selection = self.profile_list.curselection()
+        selection = self.profile_list.selection()
         if not selection:
             messagebox.showwarning("No selection", "Please select a profile to edit.")
             self.logger.info("Profile edit cancelled: no profile selected")
             return
-        index = selection[0]
-        value = self.profile_list.get(index)
-        name = value.split(" (", 1)[0]
+        item_id = selection[0]
+        values = self.profile_list.item(item_id, "values")
+        name = values[0]
         try:
             profiles = load_profiles()
             profile = next((p for p in profiles if p.get("name") == name), None)
@@ -611,10 +626,10 @@ class LighthouseApp:
         new_name, key_path, ip = dialog.result
         try:
             updated = update_profile(name, new_name, key_path, ip)
-            display = f"{updated['name']} ({updated['ip']})"
-            self.profile_list.delete(index)
-            self.profile_list.insert(index, display)
-            self.logger.info("Profile '%s' updated", updated['name'])
+            self.profile_list.item(
+                item_id, values=(updated["name"], updated["ip"])
+            )
+            self.logger.info("Profile '%s' updated", updated["name"])
         except Exception as exc:
             self.logger.exception("Failed to update profile: %s", exc)
             messagebox.showerror("Error", str(exc))
@@ -622,21 +637,21 @@ class LighthouseApp:
     def _on_delete_profile(self) -> None:
         """Triggered when the 'Delete Profile' button is pressed."""
         self.logger.info("Profile deletion requested")
-        selection = self.profile_list.curselection()
+        selection = self.profile_list.selection()
         if not selection:
             messagebox.showwarning("No selection", "Please select a profile to delete.")
             self.logger.info("Profile deletion cancelled: no profile selected")
             return
-        index = selection[0]
-        value = self.profile_list.get(index)
-        name = value.split(" (", 1)[0]
+        item_id = selection[0]
+        values = self.profile_list.item(item_id, "values")
+        name = values[0]
         if not messagebox.askyesno("Confirm", f"Delete profile '{name}'?"):
             self.logger.info("Profile deletion cancelled by user")
             return
         try:
             removed = delete_profile(name)
             if removed:
-                self.profile_list.delete(index)
+                self.profile_list.delete(item_id)
                 self.logger.info("Profile '%s' deleted", name)
             else:
                 self.logger.warning("Profile '%s' not found during deletion", name)

@@ -64,6 +64,10 @@ def test_buttons_labels(monkeypatch) -> None:
         def add(self, child, **kwargs):
             pass
 
+    class DummyTreeview(DummyWidget):
+        def heading(self, *_, **__):
+            pass
+
     fake_tk = SimpleNamespace(
         PanedWindow=DummyPanedWindow,
         Frame=DummyWidget,
@@ -75,8 +79,10 @@ def test_buttons_labels(monkeypatch) -> None:
         BOTH="both",
         GROOVE="groove",
     )
+    fake_ttk = SimpleNamespace(Treeview=DummyTreeview)
 
     monkeypatch.setattr(ui, "tk", fake_tk)
+    monkeypatch.setattr(ui, "ttk", fake_ttk)
     monkeypatch.setattr(ui, "load_pane_layout", lambda file_path=ui.PANE_LAYOUT_FILE: [])
     monkeypatch.setattr(ui.LighthouseApp, "_setup_logging", lambda self: None)
     monkeypatch.setattr(ui.LighthouseApp, "_load_profiles_into_list", lambda self: None)

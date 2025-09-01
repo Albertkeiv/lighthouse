@@ -75,6 +75,10 @@ def test_restore_pane_layout_after_panes(monkeypatch):
                 raise ValueError("sash index out of range")
             self.sashes[idx] = (x, y)
 
+    class DummyTreeview(DummyWidget):
+        def heading(self, *_, **__):
+            pass
+
     fake_tk = types.SimpleNamespace(
         PanedWindow=DummyPanedWindow,
         Frame=DummyWidget,
@@ -86,8 +90,10 @@ def test_restore_pane_layout_after_panes(monkeypatch):
         BOTH="both",
         GROOVE="groove",
     )
+    fake_ttk = types.SimpleNamespace(Treeview=DummyTreeview)
 
     monkeypatch.setattr(ui, "tk", fake_tk)
+    monkeypatch.setattr(ui, "ttk", fake_ttk)
     monkeypatch.setattr(ui, "load_pane_layout", lambda file_path=ui.PANE_LAYOUT_FILE: coords)
 
     class DummyRoot(DummyWidget):

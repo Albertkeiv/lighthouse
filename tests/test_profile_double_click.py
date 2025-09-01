@@ -22,21 +22,19 @@ def test_profile_list_double_click_triggers_edit(monkeypatch) -> None:
     cfg = _load_cfg()
     bindings: dict = {}
 
-    class DummyListbox:
+    class DummyTreeview:
         def __init__(self, *_, **__):
             self.bindings = bindings
         def pack(self, *_, **__):
             pass
         def bind(self, event, callback):
             self.bindings[event] = callback
-        def curselection(self):
-            return (0,)
-        def get(self, index):
-            return "profile"
-        def delete(self, index):
+        def heading(self, *_, **__):
             pass
-        def insert(self, index, value):
-            pass
+        def selection(self):
+            return ("item0",)
+        def item(self, item_id, option=None):
+            return ("profile", "127.0.0.1")
 
     class DummyWidget:
         def __init__(self, *_, **__):
@@ -75,7 +73,7 @@ def test_profile_list_double_click_triggers_edit(monkeypatch) -> None:
     fake_tk = SimpleNamespace(
         PanedWindow=DummyPanedWindow,
         Frame=DummyWidget,
-        Listbox=DummyListbox,
+        Listbox=DummyWidget,
         Text=DummyWidget,
         Button=DummyButton,
         END="end",
@@ -84,7 +82,9 @@ def test_profile_list_double_click_triggers_edit(monkeypatch) -> None:
         GROOVE="groove",
     )
 
+    fake_ttk = SimpleNamespace(Treeview=DummyTreeview)
     monkeypatch.setattr(ui, "tk", fake_tk)
+    monkeypatch.setattr(ui, "ttk", fake_ttk)
     monkeypatch.setattr(ui, "load_pane_layout", lambda file_path=ui.PANE_LAYOUT_FILE: [])
     monkeypatch.setattr(ui.LighthouseApp, "_setup_logging", lambda self: None)
     monkeypatch.setattr(ui.LighthouseApp, "_load_profiles_into_list", lambda self: None)

@@ -28,13 +28,13 @@ def test_new_profile_skips_success_popup(monkeypatch) -> None:
          patch.object(ui.LighthouseApp, "_build_ui", lambda self: None):
         app = ui.LighthouseApp(root, cfg)
 
-    # Dummy listbox and tk constant
-    class DummyListbox:
+    # Dummy treeview and tk constant
+    class DummyTreeview:
         def __init__(self):
             self.items = []
-        def insert(self, index, value):
-            self.items.append(value)
-    app.profile_list = DummyListbox()
+        def insert(self, parent, index, values):
+            self.items.append(values)
+    app.profile_list = DummyTreeview()
     monkeypatch.setattr(ui, "tk", SimpleNamespace(END="end"))
 
     # Patch dialogs and profile creation
@@ -60,7 +60,7 @@ def test_new_profile_skips_success_popup(monkeypatch) -> None:
     app._on_new_profile()
 
     assert app.profile_list.items == [
-        f"{cfg['profile1']['name']} ({cfg['expected']['first_ip']})"
+        (cfg['profile1']['name'], cfg['expected']['first_ip'])
     ]
     assert "showinfo" not in called
 
@@ -73,20 +73,17 @@ def test_edit_profile_skips_success_popup(monkeypatch) -> None:
          patch.object(ui.LighthouseApp, "_build_ui", lambda self: None):
         app = ui.LighthouseApp(root, cfg)
 
-    class DummyListbox:
+    class DummyTreeview:
         def __init__(self):
-            self.items = [
-                f"{cfg['profile1']['name']} ({cfg['expected']['first_ip']})"
-            ]
-        def curselection(self):
-            return (0,)
-        def get(self, index):
-            return self.items[index]
-        def delete(self, index):
-            self.items.pop(index)
-        def insert(self, index, value):
-            self.items.insert(index, value)
-    app.profile_list = DummyListbox()
+            self.items = [(cfg['profile1']['name'], cfg['expected']['first_ip'])]
+        def selection(self):
+            return ("item0",)
+        def item(self, item_id, option=None, **kwargs):
+            if option == "values" and not kwargs:
+                return self.items[0]
+            if 'values' in kwargs:
+                self.items[0] = kwargs['values']
+    app.profile_list = DummyTreeview()
 
     monkeypatch.setattr(
         ui,
@@ -113,7 +110,7 @@ def test_edit_profile_skips_success_popup(monkeypatch) -> None:
     app._on_edit_profile()
 
     assert app.profile_list.items == [
-        f"{cfg['updated_profile']['name']} ({cfg['expected']['updated_ip']})"
+        (cfg['updated_profile']['name'], cfg['expected']['updated_ip'])
     ]
     assert "showinfo" not in called
 
@@ -126,19 +123,17 @@ def test_delete_profile_skips_popups(monkeypatch) -> None:
          patch.object(ui.LighthouseApp, "_build_ui", lambda self: None):
         app = ui.LighthouseApp(root, cfg)
 
-    class DummyListbox:
+    class DummyTreeview:
         def __init__(self):
-            self.items = [
-                f"{cfg['profile1']['name']} ({cfg['expected']['first_ip']})"
-            ]
+            self.items = [(cfg['profile1']['name'], cfg['expected']['first_ip'])]
             self.deleted = []
-        def curselection(self):
-            return (0,)
-        def get(self, index):
-            return self.items[index]
-        def delete(self, index):
-            self.deleted.append(self.items.pop(index))
-    app.profile_list = DummyListbox()
+        def selection(self):
+            return ("item0",)
+        def item(self, item_id, option=None):
+            return self.items[0]
+        def delete(self, item_id):
+            self.deleted.append(self.items.pop(0))
+    app.profile_list = DummyTreeview()
 
     monkeypatch.setattr(ui.messagebox, "askyesno", lambda *a, **k: True)
     called = {}
