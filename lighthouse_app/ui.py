@@ -108,20 +108,18 @@ class LighthouseApp:
 
     def _build_ui(self) -> None:
         """Create and arrange widgets using a resizable paned window."""
-        # Configure grid for the main window
+        # Configure grid for the main window. Only one row and column are
+        # required because all control buttons now live inside their
+        # respective panes instead of in a separate bottom row.
         self.root.columnconfigure(0, weight=1)
-        self.root.columnconfigure(1, weight=1)
-        self.root.columnconfigure(2, weight=3)
-        # Top row holds the main content and expands to fill extra space.
         self.root.rowconfigure(0, weight=1)
-        self.root.rowconfigure(1, weight=0)
 
         # Paned window to allow user resizing between sections
         sash_width = sash_width_from_config(self.cfg)
         self.top_pane = tk.PanedWindow(
             self.root, orient=tk.HORIZONTAL, sashwidth=sash_width
         )
-        self.top_pane.grid(row=0, column=0, columnspan=3, sticky="nsew")
+        self.top_pane.grid(row=0, column=0, sticky="nsew")
         self.top_pane.bind("<ButtonRelease-1>", self._on_pane_resize)
 
         # Profiles list
@@ -130,6 +128,10 @@ class LighthouseApp:
         self.profile_list = tk.Listbox(profile_frame)
         self.profile_list.pack(fill=tk.BOTH, expand=True)
         self.profile_list.bind("<<ListboxSelect>>", self._on_profile_select)
+        new_profile_btn = tk.Button(
+            profile_frame, text="New Profile", command=self._on_new_profile
+        )
+        new_profile_btn.pack(fill="x")
         delete_btn = tk.Button(
             profile_frame, text="Delete Profile", command=self._on_delete_profile
         )
@@ -142,12 +144,17 @@ class LighthouseApp:
         self.tunnel_list = tk.Listbox(tunnel_frame)
         self.tunnel_list.pack(fill=tk.BOTH, expand=True)
         self.tunnel_list.bind("<<ListboxSelect>>", self._on_tunnel_select)
+        new_tunnel_btn = tk.Button(
+            tunnel_frame, text="New Tunnel", command=self._on_new_tunnel
+        )
+        new_tunnel_btn.pack(fill="x")
 
         # Info and log area
         info_frame = tk.Frame(self.top_pane)
         self.top_pane.add(info_frame, minsize=200)
         info_frame.rowconfigure(0, weight=3)
         info_frame.rowconfigure(1, weight=1)
+        info_frame.rowconfigure(2, weight=0)
 
         # Restore pane layout after all panes have been added.
         # Calling this earlier results in errors because sashes do not yet exist.
@@ -161,21 +168,10 @@ class LighthouseApp:
         self.log_text.grid(row=1, column=0, sticky="nsew")
         self.log_text.insert(tk.END, "<LOG>")
 
-        # Bottom buttons
-        new_profile_btn = tk.Button(
-            self.root, text="New Profile", command=self._on_new_profile
-        )
-        new_profile_btn.grid(row=1, column=0, sticky="ew", padx=5, pady=5)
-
-        new_tunnel_btn = tk.Button(
-            self.root, text="New Tunnel", command=self._on_new_tunnel
-        )
-        new_tunnel_btn.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
-
         settings_btn = tk.Button(
-            self.root, text="Program Settings", command=self._on_settings
+            info_frame, text="Program Settings", command=self._on_settings
         )
-        settings_btn.grid(row=1, column=2, sticky="ew", padx=5, pady=5)
+        settings_btn.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
 
     def _restore_pane_layout(self) -> None:
         """Apply saved pane positions if available."""
