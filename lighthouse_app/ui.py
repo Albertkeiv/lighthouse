@@ -251,11 +251,23 @@ class LighthouseApp:
         self.log_text = tk.Text(info_frame, height=8)
         self.log_text.grid(row=1, column=0, sticky="nsew")
         self.log_text.insert(tk.END, "<LOG>")
+        # Frame to hold bottom action buttons side by side
+        button_frame = tk.Frame(info_frame)
+        button_frame.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
+        button_frame.columnconfigure(0, weight=1)
+        button_frame.columnconfigure(1, weight=1)
 
-        settings_btn = tk.Button(
-            info_frame, text="Program Settings", command=self._on_settings
+        # Button for managing SSH keys
+        self.manage_ssh_btn = tk.Button(
+            button_frame, text="Manage SSH Key", command=self._on_manage_ssh_key
         )
-        settings_btn.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
+        self.manage_ssh_btn.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+
+        # General settings button
+        self.settings_btn = tk.Button(
+            button_frame, text="Settings", command=self._on_settings
+        )
+        self.settings_btn.grid(row=0, column=1, sticky="ew")
 
     def _restore_pane_layout(self) -> None:
         """Apply saved pane positions if available."""
@@ -352,9 +364,16 @@ class LighthouseApp:
         self.logger.info("New tunnel creation requested")
         messagebox.showinfo("Info", "New Tunnel functionality not yet implemented.")
 
+    def _on_manage_ssh_key(self) -> None:
+        """Triggered when the 'Manage SSH Key' button is pressed."""
+        self.logger.info("SSH key management requested")
+        messagebox.showinfo(
+            "Info", "SSH key management functionality not yet implemented."
+        )
+
     def _on_settings(self) -> None:
-        """Triggered when the 'Program Settings' button is pressed."""
-        self.logger.info("Program settings requested")
+        """Triggered when the 'Settings' button is pressed."""
+        self.logger.info("Settings requested")
         messagebox.showinfo("Info", "Settings functionality not yet implemented.")
 
     def _on_pane_resize(self, event: tk.Event) -> None:
