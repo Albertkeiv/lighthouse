@@ -7,6 +7,12 @@ from tkinter import messagebox, simpledialog
 from ipaddress import ip_address
 
 from .profiles import create_profile, load_profiles, delete_profile, update_profile
+from .ssh_keys import (
+    create_key as create_ssh_key,
+    load_keys as load_ssh_keys,
+    delete_key as delete_ssh_key,
+    update_key as update_ssh_key,
+)
 
 PANE_LAYOUT_FILE = "pane_layout.ini"
 
@@ -185,6 +191,186 @@ class ProfileDialog(simpledialog.Dialog):
         self.logger.info("Profile dialog cancelled")
         super().cancel(event)
 
+
+class SSHKeyDialog(simpledialog.Dialog):
+    """Dialog window for collecting or editing SSH key parameters."""
+
+    def __init__(
+        self,
+        parent: tk.Tk,
+        existing_keys: List[dict],
+        key: Optional[dict] = None,
+    ):
+        self.existing_keys = existing_keys
+        self.key = key
+        self.logger = logging.getLogger(__name__)
+        title = "Edit SSH Key" if key is not None else "Add SSH Key"
+        super().__init__(parent, title)
+
+    def body(self, master: tk.Misc) -> tk.Entry:
+        tk.Label(master, text="Key name:").grid(row=0, column=0, sticky="w")
+        self.name_entry = tk.Entry(master)
+        self.name_entry.grid(row=0, column=1)
+
+        tk.Label(master, text="Key path:").grid(row=1, column=0, sticky="w")
+        self.path_entry = tk.Entry(master)
+        self.path_entry.grid(row=1, column=1)
+
+        tk.Label(master, text="Description:").grid(row=2, column=0, sticky="w")
+        self.desc_entry = tk.Entry(master)
+        self.desc_entry.grid(row=2, column=1)
+
+        if self.key is not None:
+            self.name_entry.insert(0, self.key.get("name", ""))
+            self.path_entry.insert(0, self.key.get("path", ""))
+            self.desc_entry.insert(0, self.key.get("description", ""))
+
+        return self.name_entry
+
+    def validate(self) -> bool:  # pragma: no cover - GUI validation
+        name = self.name_entry.get().strip()
+        path = self.path_entry.get().strip()
+
+        if not name:
+            messagebox.showerror("Error", "Key name must be provided")
+            return False
+        existing_name = (self.key or {}).get("name")
+        if any(
+            k.get("name") == name and k.get("name") != existing_name
+            for k in self.existing_keys
+        ):
+            messagebox.showerror("Error", f"SSH key '{name}' already exists")
+            self.logger.warning("SSH key dialog aborted: name '%s' exists", name)
+            return False
+        if not path:
+            messagebox.showerror("Error", "Key path must be provided")
+            return False
+        if not Path(path).expanduser().exists():
+            messagebox.showerror("Error", f"SSH key not found: {path}")
+            return False
+        return True
+
+    def apply(self) -> None:  # pragma: no cover - GUI side effect
+        name = self.name_entry.get().strip()
+        path = self.path_entry.get().strip()
+        desc = self.desc_entry.get().strip()
+        self.result = (name, path, desc)
+        self.logger.info("SSH key dialog confirmed for '%s'", name)
+
+    def cancel(self, event=None) -> None:  # pragma: no cover - GUI side effect
+        self.logger.info("SSH key dialog cancelled")
+        super().cancel(event)
+
+
+class SSHKeyManager:
+    """Window for managing SSH keys."""
+
+    def __init__(self, parent: tk.Tk) -> None:
+        self.parent = parent
+        self.logger = logging.getLogger(__name__)
+        self.top = tk.Toplevel(parent)
+        self.top.title("SSH Keys")
+
+        self.key_list = tk.Listbox(self.top)
+        self.key_list.pack(fill=tk.BOTH, expand=True)
+
+        add_btn = tk.Button(self.top, text="Add SSH key", command=self._on_add)
+        add_btn.pack(fill="x")
+        edit_btn = tk.Button(self.top, text="Edit SSH key", command=self._on_edit)
+        edit_btn.pack(fill="x")
+        del_btn = tk.Button(self.top, text="Delete SSH key", command=self._on_delete)
+        del_btn.pack(fill="x")
+
+        self._load_keys()
+
+    def _load_keys(self) -> None:
+        try:
+            keys = load_ssh_keys()
+            for key in keys:
+                self.key_list.insert(tk.END, key["name"])
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to load SSH keys: %s", exc)
+
+    def _on_add(self) -> None:
+        self.logger.info("SSH key addition requested")
+        try:
+            keys = load_ssh_keys()
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to load SSH keys for dialog: %s", exc)
+            messagebox.showerror("Error", "Failed to load SSH keys")
+            return
+        dialog = SSHKeyDialog(self.top, keys)
+        if not getattr(dialog, "result", None):
+            self.logger.info("SSH key addition cancelled by user")
+            return
+        name, path, desc = dialog.result
+        try:
+            key = create_ssh_key(name, path, desc)
+            self.key_list.insert(tk.END, key["name"])
+            messagebox.showinfo("Success", f"SSH key '{key['name']}' added")
+        except Exception as exc:
+            self.logger.exception("Failed to add SSH key: %s", exc)
+            messagebox.showerror("Error", str(exc))
+
+    def _on_edit(self) -> None:
+        self.logger.info("SSH key edit requested")
+        selection = self.key_list.curselection()
+        if not selection:
+            messagebox.showwarning("No selection", "Please select an SSH key to edit.")
+            self.logger.info("SSH key edit cancelled: no key selected")
+            return
+        index = selection[0]
+        name = self.key_list.get(index)
+        try:
+            keys = load_ssh_keys()
+            key = next((k for k in keys if k.get("name") == name), None)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to load SSH keys for edit: %s", exc)
+            messagebox.showerror("Error", "Failed to load SSH keys")
+            return
+        if key is None:
+            messagebox.showerror("Error", f"SSH key '{name}' not found")
+            self.logger.warning("SSH key '%s' not found during edit", name)
+            return
+        dialog = SSHKeyDialog(self.top, keys, key)
+        if not getattr(dialog, "result", None):
+            self.logger.info("SSH key edit cancelled by user")
+            return
+        new_name, path, desc = dialog.result
+        try:
+            updated = update_ssh_key(name, new_name, path, desc)
+            self.key_list.delete(index)
+            self.key_list.insert(index, updated["name"])
+            messagebox.showinfo("Success", f"SSH key '{updated['name']}' updated")
+            self.logger.info("SSH key '%s' updated", updated["name"])
+        except Exception as exc:
+            self.logger.exception("Failed to update SSH key: %s", exc)
+            messagebox.showerror("Error", str(exc))
+
+    def _on_delete(self) -> None:
+        self.logger.info("SSH key deletion requested")
+        selection = self.key_list.curselection()
+        if not selection:
+            messagebox.showwarning("No selection", "Please select an SSH key to delete.")
+            self.logger.info("SSH key deletion cancelled: no key selected")
+            return
+        index = selection[0]
+        name = self.key_list.get(index)
+        if not messagebox.askyesno("Confirm", f"Delete SSH key '{name}'?"):
+            self.logger.info("SSH key deletion cancelled by user")
+            return
+        try:
+            removed = delete_ssh_key(name)
+            if removed:
+                self.key_list.delete(index)
+                messagebox.showinfo("Deleted", f"SSH key '{name}' deleted")
+                self.logger.info("SSH key '%s' deleted", name)
+            else:
+                messagebox.showwarning("Not found", f"SSH key '{name}' not found")
+                self.logger.warning("SSH key '%s' not found during deletion", name)
+        except Exception as exc:
+            self.logger.exception("Failed to delete SSH key: %s", exc)
+            messagebox.showerror("Error", str(exc))
 
 class LighthouseApp:
     """Graphical interface for managing profiles and tunnels.
@@ -432,9 +618,11 @@ class LighthouseApp:
     def _on_manage_ssh_key(self) -> None:
         """Triggered when the 'Manage SSH Key' button is pressed."""
         self.logger.info("SSH key management requested")
-        messagebox.showinfo(
-            "Info", "SSH key management functionality not yet implemented."
-        )
+        try:
+            SSHKeyManager(self.root)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to open SSH key manager: %s", exc)
+            messagebox.showerror("Error", str(exc))
 
     def _on_settings(self) -> None:
         """Triggered when the 'Settings' button is pressed."""
