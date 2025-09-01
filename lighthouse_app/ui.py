@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List, Union
 import tkinter as tk
 from tkinter import messagebox, simpledialog
+from ipaddress import ip_address
 
 from .profiles import create_profile, load_profiles, delete_profile
 
@@ -79,6 +80,87 @@ def save_pane_layout(coords: List[int], file_path: Union[str, Path] = PANE_LAYOU
         logger.info("Saved pane layout: %s", coords)
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("Failed to save pane layout: %s", exc)
+
+
+class ProfileDialog(simpledialog.Dialog):
+    """Dialog window for collecting profile parameters."""
+
+    def __init__(self, parent: tk.Tk, existing_profiles: List[dict]):
+        self.existing_profiles = existing_profiles
+        self.logger = logging.getLogger(__name__)
+        super().__init__(parent, "Create Profile")
+
+    def body(self, master: tk.Misc) -> tk.Entry:
+        tk.Label(master, text="Profile name:").grid(row=0, column=0, sticky="w")
+        self.name_entry = tk.Entry(master)
+        self.name_entry.grid(row=0, column=1)
+
+        tk.Label(master, text="SSH key path:").grid(row=1, column=0, sticky="w")
+        self.key_entry = tk.Entry(master)
+        self.key_entry.grid(row=1, column=1)
+
+        self.auto_var = tk.BooleanVar(value=True)
+        auto_chk = tk.Checkbutton(
+            master,
+            text="Assign IP automatically",
+            variable=self.auto_var,
+            command=self._toggle_ip_entry,
+        )
+        auto_chk.grid(row=2, column=0, columnspan=2, sticky="w")
+
+        tk.Label(master, text="IP address:").grid(row=3, column=0, sticky="w")
+        self.ip_entry = tk.Entry(master)
+        self.ip_entry.grid(row=3, column=1)
+        self.ip_entry.configure(state="disabled")
+
+        return self.name_entry
+
+    def _toggle_ip_entry(self) -> None:
+        if self.auto_var.get():
+            self.ip_entry.configure(state="disabled")
+            self.logger.info("Profile dialog: automatic IP selected")
+        else:
+            self.ip_entry.configure(state="normal")
+            self.logger.info("Profile dialog: manual IP selected")
+
+    def validate(self) -> bool:  # pragma: no cover - GUI validation
+        name = self.name_entry.get().strip()
+        key_path = self.key_entry.get().strip()
+        ip_str = self.ip_entry.get().strip()
+
+        if not name:
+            messagebox.showerror("Error", "Profile name must be provided")
+            return False
+        if any(p.get("name") == name for p in self.existing_profiles):
+            messagebox.showerror("Error", f"Profile '{name}' already exists")
+            self.logger.warning("Profile creation aborted: name '%s' exists", name)
+            return False
+        if not key_path:
+            messagebox.showerror("Error", "SSH key path must be provided")
+            return False
+        if not self.auto_var.get():
+            if not ip_str:
+                messagebox.showerror(
+                    "Error", "IP address required or enable automatic assignment"
+                )
+                return False
+            try:
+                ip_address(ip_str)
+            except ValueError:
+                messagebox.showerror("Error", f"Invalid IP address: {ip_str}")
+                return False
+        return True
+
+    def apply(self) -> None:  # pragma: no cover - GUI side effect
+        name = self.name_entry.get().strip()
+        key_path = self.key_entry.get().strip()
+        ip_str = None if self.auto_var.get() else self.ip_entry.get().strip()
+        self.result = (name, key_path, ip_str)
+        self.logger.info("Profile dialog confirmed for '%s'", name)
+
+    def cancel(self, event=None) -> None:  # pragma: no cover - GUI side effect
+        self.logger.info("Profile dialog cancelled")
+        super().cancel(event)
 
 
 class LighthouseApp:
@@ -217,45 +299,18 @@ class LighthouseApp:
     def _on_new_profile(self) -> None:
         """Triggered when the 'New Profile' button is pressed."""
         self.logger.info("New profile creation requested")
-        name = simpledialog.askstring("Profile Name", "Enter profile name:")
-        if not name:
-            self.logger.info("Profile creation cancelled: no name provided")
-            return
-        self.logger.info("User entered profile name '%s'", name)
-
-        # Validate profile name immediately to avoid extra prompts
         try:
-            existing_profiles = load_profiles()
+            profiles = load_profiles()
         except Exception as exc:  # pragma: no cover - defensive
-            self.logger.exception(
-                "Failed to load profiles for name validation: %s", exc
-            )
-            messagebox.showerror("Error", "Failed to validate profile name")
+            self.logger.exception("Failed to load profiles for dialog: %s", exc)
+            messagebox.showerror("Error", "Failed to load profiles")
             return
-        if any(p.get("name") == name for p in existing_profiles):
-            messagebox.showerror("Error", f"Profile '{name}' already exists")
-            self.logger.warning(
-                "Profile creation aborted: name '%s' already exists", name
-            )
+
+        dialog = ProfileDialog(self.root, profiles)
+        if not getattr(dialog, "result", None):
+            self.logger.info("Profile creation cancelled by user")
             return
-        key_path = simpledialog.askstring("SSH Key Path", "Enter path to SSH key:")
-        if not key_path:
-            self.logger.info("Profile creation cancelled: no SSH key path provided")
-            return
-        use_auto = messagebox.askyesno(
-            "IP Assignment", "Assign IP address automatically?"
-        )
-        if use_auto:
-            ip = None
-            self.logger.info("User opted for automatic IP assignment")
-        else:
-            ip = simpledialog.askstring("IP Address", "Enter IP address:")
-            if not ip:
-                self.logger.info(
-                    "Profile creation cancelled: no IP address provided"
-                )
-                return
-            self.logger.info("User provided manual IP %s", ip)
+        name, key_path, ip = dialog.result
         try:
             profile = create_profile(name, key_path, ip)
             display = f"{profile['name']} ({profile['ip']})"
