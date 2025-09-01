@@ -155,6 +155,8 @@ class LighthouseApp:
         info_frame.rowconfigure(0, weight=3)
         info_frame.rowconfigure(1, weight=1)
         info_frame.rowconfigure(2, weight=0)
+        # Ensure the info and log section stretches horizontally with window
+        info_frame.columnconfigure(0, weight=1)
 
         # Restore pane layout after all panes have been added.
         # Calling this earlier results in errors because sashes do not yet exist.
