@@ -25,12 +25,17 @@ def test_profile_list_double_click_triggers_edit(monkeypatch) -> None:
     class DummyTreeview:
         def __init__(self, *_, **__):
             self.bindings = bindings
+            self.columns = {}
         def pack(self, *_, **__):
             pass
         def bind(self, event, callback):
             self.bindings[event] = callback
         def heading(self, *_, **__):
             pass
+        def column(self, name, width=None, **_):
+            if width is not None:
+                self.columns[name] = width
+            return self.columns.get(name, 0)
         def selection(self):
             return ("item0",)
         def item(self, item_id, option=None):
