@@ -1,0 +1,153 @@
+"""Tests ensuring profile operations do not show success popups."""
+import configparser
+from pathlib import Path
+import sys
+from types import SimpleNamespace
+from unittest.mock import patch
+
+# Ensure application importable
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from lighthouse_app import ui
+
+
+def _load_cfg() -> configparser.ConfigParser:
+    """Load configuration values used for profile tests."""
+    cfg = configparser.ConfigParser()
+    cfg.read(Path(__file__).with_name("profiles_test_config.ini"))
+    return cfg
+
+
+def test_new_profile_skips_success_popup(monkeypatch) -> None:
+    """Creating a profile should not display a success message box."""
+    cfg = _load_cfg()
+
+    # Prepare bare application instance
+    root = object()
+    with patch.object(ui.LighthouseApp, "_setup_logging", lambda self: None), \
+         patch.object(ui.LighthouseApp, "_build_ui", lambda self: None):
+        app = ui.LighthouseApp(root, cfg)
+
+    # Dummy listbox and tk constant
+    class DummyListbox:
+        def __init__(self):
+            self.items = []
+        def insert(self, index, value):
+            self.items.append(value)
+    app.profile_list = DummyListbox()
+    monkeypatch.setattr(ui, "tk", SimpleNamespace(END="end"))
+
+    # Patch dialogs and profile creation
+    monkeypatch.setattr(ui, "load_profiles", lambda: [])
+    class DummyDialog:
+        def __init__(self, *_, **__):
+            self.result = (
+                cfg["profile1"]["name"],
+                cfg["profile1"]["ssh_key_filename"],
+                None,
+            )
+    monkeypatch.setattr(ui, "ProfileDialog", DummyDialog)
+    def fake_create(name, key_path, ip):
+        return {"name": name, "ip": cfg["expected"]["first_ip"]}
+    monkeypatch.setattr(ui, "create_profile", fake_create)
+
+    called = {}
+    def fake_showinfo(*args, **kwargs):
+        called["showinfo"] = True
+    monkeypatch.setattr(ui.messagebox, "showinfo", fake_showinfo)
+    monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
+
+    app._on_new_profile()
+
+    assert app.profile_list.items == [
+        f"{cfg['profile1']['name']} ({cfg['expected']['first_ip']})"
+    ]
+    assert "showinfo" not in called
+
+
+def test_edit_profile_skips_success_popup(monkeypatch) -> None:
+    """Editing a profile should not display a success message box."""
+    cfg = _load_cfg()
+    root = object()
+    with patch.object(ui.LighthouseApp, "_setup_logging", lambda self: None), \
+         patch.object(ui.LighthouseApp, "_build_ui", lambda self: None):
+        app = ui.LighthouseApp(root, cfg)
+
+    class DummyListbox:
+        def __init__(self):
+            self.items = [
+                f"{cfg['profile1']['name']} ({cfg['expected']['first_ip']})"
+            ]
+        def curselection(self):
+            return (0,)
+        def get(self, index):
+            return self.items[index]
+        def delete(self, index):
+            self.items.pop(index)
+        def insert(self, index, value):
+            self.items.insert(index, value)
+    app.profile_list = DummyListbox()
+
+    monkeypatch.setattr(
+        ui,
+        "load_profiles",
+        lambda: [{"name": cfg["profile1"]["name"], "ip": cfg["expected"]["first_ip"]}],
+    )
+    class DummyDialog:
+        def __init__(self, *_, **__):
+            self.result = (
+                cfg["updated_profile"]["name"],
+                cfg["updated_profile"]["ssh_key_filename"],
+                cfg["updated_profile"]["ip"],
+            )
+    monkeypatch.setattr(ui, "ProfileDialog", DummyDialog)
+    def fake_update(orig, new, key_path, ip):
+        return {"name": new, "ip": cfg["expected"]["updated_ip"]}
+    monkeypatch.setattr(ui, "update_profile", fake_update)
+
+    called = {}
+    monkeypatch.setattr(ui.messagebox, "showinfo", lambda *a, **k: called.setdefault("showinfo", True))
+    monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
+    monkeypatch.setattr(ui.messagebox, "showwarning", lambda *a, **k: None)
+
+    app._on_edit_profile()
+
+    assert app.profile_list.items == [
+        f"{cfg['updated_profile']['name']} ({cfg['expected']['updated_ip']})"
+    ]
+    assert "showinfo" not in called
+
+
+def test_delete_profile_skips_popups(monkeypatch) -> None:
+    """Deleting a profile should not display informational message boxes."""
+    cfg = _load_cfg()
+    root = object()
+    with patch.object(ui.LighthouseApp, "_setup_logging", lambda self: None), \
+         patch.object(ui.LighthouseApp, "_build_ui", lambda self: None):
+        app = ui.LighthouseApp(root, cfg)
+
+    class DummyListbox:
+        def __init__(self):
+            self.items = [
+                f"{cfg['profile1']['name']} ({cfg['expected']['first_ip']})"
+            ]
+            self.deleted = []
+        def curselection(self):
+            return (0,)
+        def get(self, index):
+            return self.items[index]
+        def delete(self, index):
+            self.deleted.append(self.items.pop(index))
+    app.profile_list = DummyListbox()
+
+    monkeypatch.setattr(ui.messagebox, "askyesno", lambda *a, **k: True)
+    called = {}
+    monkeypatch.setattr(ui.messagebox, "showinfo", lambda *a, **k: called.setdefault("showinfo", True))
+    monkeypatch.setattr(ui.messagebox, "showwarning", lambda *a, **k: called.setdefault("showwarning", True))
+    monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
+    monkeypatch.setattr(ui, "delete_profile", lambda name: True)
+
+    app._on_delete_profile()
+
+    assert app.profile_list.items == []
+    assert "showinfo" not in called and "showwarning" not in called

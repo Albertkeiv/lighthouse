@@ -571,7 +571,7 @@ class LighthouseApp:
             profile = create_profile(name, key_path, ip)
             display = f"{profile['name']} ({profile['ip']})"
             self.profile_list.insert(tk.END, display)
-            messagebox.showinfo("Success", f"Profile '{profile['name']}' created")
+            self.logger.info("Profile '%s' created", profile['name'])
         except Exception as exc:
             self.logger.exception("Failed to create profile: %s", exc)
             messagebox.showerror("Error", str(exc))
@@ -608,7 +608,6 @@ class LighthouseApp:
             display = f"{updated['name']} ({updated['ip']})"
             self.profile_list.delete(index)
             self.profile_list.insert(index, display)
-            messagebox.showinfo("Success", f"Profile '{updated['name']}' updated")
             self.logger.info("Profile '%s' updated", updated['name'])
         except Exception as exc:
             self.logger.exception("Failed to update profile: %s", exc)
@@ -632,10 +631,8 @@ class LighthouseApp:
             removed = delete_profile(name)
             if removed:
                 self.profile_list.delete(index)
-                messagebox.showinfo("Deleted", f"Profile '{name}' deleted")
                 self.logger.info("Profile '%s' deleted", name)
             else:
-                messagebox.showwarning("Not found", f"Profile '{name}' not found")
                 self.logger.warning("Profile '%s' not found during deletion", name)
         except Exception as exc:
             self.logger.exception("Failed to delete profile: %s", exc)
