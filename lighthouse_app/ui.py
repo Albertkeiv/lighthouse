@@ -223,6 +223,23 @@ class LighthouseApp:
         if not name:
             self.logger.info("Profile creation cancelled: no name provided")
             return
+        self.logger.info("User entered profile name '%s'", name)
+
+        # Validate profile name immediately to avoid extra prompts
+        try:
+            existing_profiles = load_profiles()
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception(
+                "Failed to load profiles for name validation: %s", exc
+            )
+            messagebox.showerror("Error", "Failed to validate profile name")
+            return
+        if any(p.get("name") == name for p in existing_profiles):
+            messagebox.showerror("Error", f"Profile '{name}' already exists")
+            self.logger.warning(
+                "Profile creation aborted: name '%s' already exists", name
+            )
+            return
         key_path = simpledialog.askstring("SSH Key Path", "Enter path to SSH key:")
         if not key_path:
             self.logger.info("Profile creation cancelled: no SSH key path provided")
