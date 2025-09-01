@@ -1,4 +1,4 @@
-"""Tests for presence and labels of bottom action buttons."""
+"""Tests for presence and labels of buttons."""
 import configparser
 from pathlib import Path
 import sys
@@ -17,7 +17,7 @@ def _load_cfg() -> configparser.ConfigParser:
     return cfg
 
 
-def test_bottom_buttons_labels(monkeypatch) -> None:
+def test_buttons_labels(monkeypatch) -> None:
     """Buttons should have labels defined in configuration file."""
     cfg = _load_cfg()
     labels = []
@@ -86,6 +86,8 @@ def test_bottom_buttons_labels(monkeypatch) -> None:
 
     expected_settings = cfg["buttons"]["settings"]
     expected_manage = cfg["buttons"]["manage_ssh_key"]
+    expected_edit = cfg["buttons"]["edit_profile"]
 
     assert expected_settings in labels
     assert expected_manage in labels
+    assert expected_edit in labels

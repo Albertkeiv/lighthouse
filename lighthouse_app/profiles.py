@@ -142,3 +142,68 @@ def delete_profile(name: str, file_path: Union[str, Path] = PROFILES_FILE) -> bo
     save_profiles(remaining, file_path)
     logger.info("Profile '%s' deleted", name)
     return True
+
+
+def update_profile(
+    original_name: str,
+    new_name: str,
+    ssh_key_path: Union[str, Path],
+    ip: Optional[str] = None,
+    file_path: Union[str, Path] = PROFILES_FILE,
+) -> Dict[str, str]:
+    """Update an existing profile's parameters.
+
+    Parameters
+    ----------
+    original_name: str
+        Name of the profile to update.
+    new_name: str
+        New human-readable profile name.
+    ssh_key_path: str | Path
+        Path to the SSH private key.
+    ip: str, optional
+        New IP address to assign. If ``None`` an address is automatically
+        allocated from ``PROFILE_NET``.
+    file_path: str | Path, optional
+        Path to the profiles JSON file. Defaults to ``PROFILES_FILE``.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info("Request to update profile '%s'", original_name)
+
+    if not new_name:
+        raise ValueError("Profile name must be provided")
+
+    key_path = Path(ssh_key_path).expanduser()
+    if not key_path.exists():
+        raise FileNotFoundError(f"SSH key not found: {key_path}")
+
+    profiles = load_profiles(file_path)
+    profile = next((p for p in profiles if p.get("name") == original_name), None)
+    if profile is None:
+        logger.warning("Profile '%s' not found", original_name)
+        raise ValueError(f"Profile '{original_name}' not found")
+
+    if new_name != original_name and any(p.get("name") == new_name for p in profiles):
+        raise ValueError(f"Profile '{new_name}' already exists")
+
+    if ip is not None:
+        try:
+            ip_str = str(ip_address(ip))
+        except ValueError as exc:
+            raise ValueError(f"Invalid IP address: {ip}") from exc
+        if any(
+            p.get("ip") == ip_str and p.get("name") != original_name for p in profiles
+        ):
+            raise ValueError(f"IP address {ip_str} is already in use")
+        logger.info("Manual IP '%s' requested for profile '%s'", ip_str, original_name)
+    else:
+        remaining = [p for p in profiles if p.get("name") != original_name]
+        ip_str = _allocate_ip(remaining)
+        logger.info(
+            "Automatically allocated IP '%s' for profile '%s'", ip_str, original_name
+        )
+
+    profile.update({"name": new_name, "ssh_key": str(key_path), "ip": ip_str})
+    save_profiles(profiles, file_path)
+    logger.info("Profile '%s' updated", original_name)
+    return profile
