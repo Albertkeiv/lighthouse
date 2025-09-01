@@ -25,3 +25,10 @@ def test_config_contains_required_fields():
     cfg = load_cfg()
     assert cfg.has_section('ui'), "Missing 'ui' section in config.ini"
     assert cfg.get('ui', 'title'), "UI title must be set"
+
+
+def test_sash_width_matches_config():
+    cfg = load_cfg()
+    expected = cfg.getint('ui', 'sash_width')
+    assert ui.sash_width_from_config(cfg) == expected
+    assert expected >= 1
