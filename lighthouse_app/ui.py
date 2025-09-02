@@ -794,15 +794,38 @@ class LighthouseApp:
         builtins._lh_app_instance = self
 
     def _setup_logging(self) -> None:
-        """Configure logging to file and console."""
+        """Configure logging to file and console.
+
+        A custom handler forwards ``ERROR`` level messages to the UI log
+        widget so that problems are visible directly in the application.
+        """
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
             handlers=[
                 logging.FileHandler("app.log"),
-                logging.StreamHandler()
-            ]
+                logging.StreamHandler(),
+            ],
         )
+
+        class UILogHandler(logging.Handler):
+            """Send error messages to the on-screen log container."""
+
+            def __init__(self, app: "LighthouseApp") -> None:
+                super().__init__(level=logging.ERROR)
+                self.app = app
+
+            def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover - UI safety
+                try:
+                    message = self.format(record)
+                    self.app._append_log(message)
+                except Exception:
+                    # Logging failures should never crash the application
+                    pass
+
+        ui_handler = UILogHandler(self)
+        ui_handler.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
+        logging.getLogger().addHandler(ui_handler)
 
     def _append_log(self, message: str) -> None:
         """Append a message to the log text widget safely.
@@ -934,7 +957,6 @@ class LighthouseApp:
 
         self.log_text = tk.Text(info_frame, height=8, state="disabled")
         self.log_text.grid(row=1, column=0, sticky="nsew")
-        self._append_log("<LOG>")
         # Frame to hold bottom action buttons side by side
         button_frame = tk.Frame(info_frame)
         button_frame.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
@@ -1560,7 +1582,8 @@ class LighthouseApp:
 
     def run(self) -> None:
         """Run the Tkinter main event loop."""
-        self.logger.info("Application started")
+        self.logger.info("Lighthouse started")
+        self._append_log("Lighthouse started")
         try:
             self.root.mainloop()
         except Exception as exc:  # Catch-all to prevent crashes

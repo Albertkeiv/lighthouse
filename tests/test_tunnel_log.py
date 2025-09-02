@@ -1,4 +1,4 @@
-"""Tests for logging tunnel start/stop events to the <LOG> section."""
+"""Tests for logging tunnel start/stop events to the log section."""
 
 import configparser
 from pathlib import Path
