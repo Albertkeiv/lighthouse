@@ -261,9 +261,21 @@ class ProfileDialog(simpledialog.Dialog):
         return mapping
 
     def body(self, master: tk.Misc) -> tk.Entry:
-        tk.Label(master, text="Profile name:").grid(row=0, column=0, sticky="w")
-        self.name_entry = tk.Entry(master)
-        self.name_entry.grid(row=0, column=1)
+        """Construct dialog body with labelled input widgets.
+
+        The profile name field now mirrors the appearance of the main
+        window's *Status* container by using a ``LabelFrame``.  This
+        places the descriptive text in the frame's border with the entry
+        widget inside, making the label appear above the input field.
+        """
+
+        # Profile name container with border and caption above the entry
+        self.name_frame = tk.LabelFrame(master, text="Profile name")
+        self.name_frame.grid(row=0, column=0, columnspan=2, sticky="ew")
+        self.name_frame.columnconfigure(0, weight=1)
+        self.name_entry = tk.Entry(self.name_frame)
+        self.name_entry.grid(row=0, column=0, sticky="ew")
+        self.logger.debug("Profile name field prepared in labelled frame")
 
         tk.Label(master, text="SSH key:").grid(row=1, column=0, sticky="w")
         # Prepare drop-down of available SSH keys
