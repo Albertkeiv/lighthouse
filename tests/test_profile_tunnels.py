@@ -33,9 +33,12 @@ def test_add_tunnel_and_storage(tmp_path):
     add_tunnel(
         cfg["profile"]["name"],
         cfg["tunnel"]["name"],
+        cfg["tunnel"]["ssh_host"],
+        cfg["tunnel"]["username"],
         int(cfg["tunnel"]["local_port"]),
         cfg["tunnel"]["remote_host"],
         int(cfg["tunnel"]["remote_port"]),
+        int(cfg["tunnel"]["ssh_port"]),
         [d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()],
         file_path=profiles_file,
     )
@@ -48,6 +51,9 @@ def test_add_tunnel_and_storage(tmp_path):
     assert t["local_port"] == int(cfg["tunnel"]["local_port"])
     assert t["remote_host"] == cfg["tunnel"]["remote_host"]
     assert t["remote_port"] == int(cfg["tunnel"]["remote_port"])
+    assert t["ssh_host"] == cfg["tunnel"]["ssh_host"]
+    assert t["username"] == cfg["tunnel"]["username"]
+    assert t["ssh_port"] == int(cfg["tunnel"]["ssh_port"])
     assert t["dns_names"] == [
         d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()
     ]
@@ -64,6 +70,8 @@ def test_add_tunnel_without_dns_name(tmp_path):
     add_tunnel(
         cfg["profile"]["name"],
         cfg["no_dns_tunnel"]["name"],
+        cfg["no_dns_tunnel"]["ssh_host"],
+        cfg["no_dns_tunnel"]["username"],
         int(cfg["no_dns_tunnel"]["local_port"]),
         cfg["no_dns_tunnel"]["remote_host"],
         int(cfg["no_dns_tunnel"]["remote_port"]),
@@ -75,6 +83,7 @@ def test_add_tunnel_without_dns_name(tmp_path):
     assert len(tunnels) == 1
     t = tunnels[0]
     assert t["dns_names"] == []
+    assert t["ssh_port"] == 22
 
 
 def test_update_existing_tunnel(tmp_path):
@@ -88,9 +97,12 @@ def test_update_existing_tunnel(tmp_path):
     add_tunnel(
         cfg["profile"]["name"],
         cfg["tunnel"]["name"],
+        cfg["tunnel"]["ssh_host"],
+        cfg["tunnel"]["username"],
         int(cfg["tunnel"]["local_port"]),
         cfg["tunnel"]["remote_host"],
         int(cfg["tunnel"]["remote_port"]),
+        int(cfg["tunnel"]["ssh_port"]),
         [d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()],
         file_path=profiles_file,
     )
@@ -99,9 +111,12 @@ def test_update_existing_tunnel(tmp_path):
         cfg["profile"]["name"],
         cfg["tunnel"]["name"],
         cfg["updated_tunnel"]["name"],
+        cfg["updated_tunnel"]["ssh_host"],
+        cfg["updated_tunnel"]["username"],
         int(cfg["updated_tunnel"]["local_port"]),
         cfg["updated_tunnel"]["remote_host"],
         int(cfg["updated_tunnel"]["remote_port"]),
+        int(cfg["updated_tunnel"]["ssh_port"]),
         [d.strip() for d in cfg["updated_tunnel"]["dns_names"].split(",") if d.strip()],
         file_path=profiles_file,
     )
@@ -112,6 +127,9 @@ def test_update_existing_tunnel(tmp_path):
     assert t["local_port"] == int(cfg["updated_tunnel"]["local_port"])
     assert t["remote_host"] == cfg["updated_tunnel"]["remote_host"]
     assert t["remote_port"] == int(cfg["updated_tunnel"]["remote_port"])
+    assert t["ssh_host"] == cfg["updated_tunnel"]["ssh_host"]
+    assert t["username"] == cfg["updated_tunnel"]["username"]
+    assert t["ssh_port"] == int(cfg["updated_tunnel"]["ssh_port"])
     assert t["dns_names"] == [
         d.strip()
         for d in cfg["updated_tunnel"]["dns_names"].split(",")
@@ -130,9 +148,12 @@ def test_delete_tunnel(tmp_path):
     add_tunnel(
         cfg["profile"]["name"],
         cfg["tunnel"]["name"],
+        cfg["tunnel"]["ssh_host"],
+        cfg["tunnel"]["username"],
         int(cfg["tunnel"]["local_port"]),
         cfg["tunnel"]["remote_host"],
         int(cfg["tunnel"]["remote_port"]),
+        int(cfg["tunnel"]["ssh_port"]),
         [d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()],
         file_path=profiles_file,
     )

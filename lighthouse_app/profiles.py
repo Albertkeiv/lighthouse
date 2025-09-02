@@ -212,9 +212,12 @@ def update_profile(
 def add_tunnel(
     profile_name: str,
     tunnel_name: str,
+    ssh_host: str,
+    username: str,
     local_port: int,
     remote_host: str,
     remote_port: int,
+    ssh_port: int = 22,
     dns_names: Optional[List[str]] = None,
     file_path: Union[str, Path] = PROFILES_FILE,
 ) -> Dict[str, Union[str, int, List[str]]]:
@@ -226,12 +229,18 @@ def add_tunnel(
         Name of the profile to modify.
     tunnel_name: str
         Unique name for the tunnel.
+    ssh_host: str
+        Hostname of the SSH server to connect through.
+    username: str
+        Username for the SSH connection.
     local_port: int
         Local port for the tunnel.
     remote_host: str
         Remote host to connect to.
     remote_port: int
         Remote port to connect to.
+    ssh_port: int, optional
+        SSH server port. Defaults to ``22``.
     dns_names: list[str], optional
         DNS names associated with the tunnel. Can be an empty list.
     file_path: str | Path, optional
@@ -246,16 +255,19 @@ def add_tunnel(
         ", ".join(dns_names),
     )
 
-    if not profile_name or not tunnel_name:
-        raise ValueError("Profile name and tunnel name must be provided")
+    if not all([profile_name, tunnel_name, ssh_host, username]):
+        raise ValueError(
+            "Profile name, tunnel name, SSH host and username must be provided"
+        )
 
     try:
         l_port = int(local_port)
         r_port = int(remote_port)
+        s_port = int(ssh_port)
     except ValueError as exc:  # pragma: no cover - defensive
         raise ValueError("Ports must be integers") from exc
 
-    for port in (l_port, r_port):
+    for port in (l_port, r_port, s_port):
         if not (1 <= port <= 65535):
             raise ValueError(f"Port {port} must be between 1 and 65535")
 
@@ -276,6 +288,9 @@ def add_tunnel(
 
     tunnel = {
         "name": tunnel_name,
+        "ssh_host": ssh_host,
+        "username": username,
+        "ssh_port": s_port,
         "local_port": l_port,
         "remote_host": remote_host,
         "remote_port": r_port,
@@ -291,9 +306,12 @@ def update_tunnel(
     profile_name: str,
     tunnel_name: str,
     new_name: str,
+    ssh_host: str,
+    username: str,
     local_port: int,
     remote_host: str,
     remote_port: int,
+    ssh_port: int = 22,
     dns_names: Optional[List[str]] = None,
     file_path: Union[str, Path] = PROFILES_FILE,
 ) -> Dict[str, Union[str, int, List[str]]]:
@@ -307,12 +325,18 @@ def update_tunnel(
         Current name of the tunnel to update.
     new_name: str
         New unique name for the tunnel.
+    ssh_host: str
+        Hostname of the SSH server to connect through.
+    username: str
+        Username for the SSH connection.
     local_port: int
         Local port for the tunnel.
     remote_host: str
         Remote host to connect to.
     remote_port: int
         Remote port to connect to.
+    ssh_port: int, optional
+        SSH server port. Defaults to ``22``.
     dns_names: list[str], optional
         DNS names associated with the tunnel. Can be an empty list.
     file_path: str | Path, optional
@@ -327,16 +351,19 @@ def update_tunnel(
         ", ".join(dns_names),
     )
 
-    if not profile_name or not new_name or not tunnel_name:
-        raise ValueError("Profile name and tunnel names must be provided")
+    if not all([profile_name, new_name, tunnel_name, ssh_host, username]):
+        raise ValueError(
+            "Profile name, tunnel names, SSH host and username must be provided"
+        )
 
     try:
         l_port = int(local_port)
         r_port = int(remote_port)
+        s_port = int(ssh_port)
     except ValueError as exc:  # pragma: no cover - defensive
         raise ValueError("Ports must be integers") from exc
 
-    for port in (l_port, r_port):
+    for port in (l_port, r_port, s_port):
         if not (1 <= port <= 65535):
             raise ValueError(f"Port {port} must be between 1 and 65535")
 
@@ -367,6 +394,9 @@ def update_tunnel(
     tunnel.update(
         {
             "name": new_name,
+            "ssh_host": ssh_host,
+            "username": username,
+            "ssh_port": s_port,
             "local_port": l_port,
             "remote_host": remote_host,
             "remote_port": r_port,

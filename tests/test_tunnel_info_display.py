@@ -80,6 +80,9 @@ def test_tunnel_selection_updates_status(monkeypatch) -> None:
                     "local_port": int(cfg["tunnel"]["local_port"]),
                     "remote_host": cfg["tunnel"]["remote_host"],
                     "remote_port": int(cfg["tunnel"]["remote_port"]),
+                    "ssh_host": cfg["tunnel"]["ssh_host"],
+                    "username": cfg["tunnel"]["username"],
+                    "ssh_port": int(cfg["tunnel"]["ssh_port"]),
                     "dns_names": [
                         d.strip()
                         for d in cfg["tunnel"]["dns_names"].split(",")
@@ -99,9 +102,10 @@ def test_tunnel_selection_updates_status(monkeypatch) -> None:
         d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()
     ]
     expected_cmd = (
-        f"ssh -i {cfg['profile']['ssh_dir']}/{cfg['profile']['ssh_key_filename']} -L "
-        f"{cfg['tunnel']['local_port']}:{cfg['tunnel']['remote_host']}:{cfg['tunnel']['remote_port']} "
-        f"{cfg['profile']['ip']}"
+        f"ssh -i {cfg['profile']['ssh_dir']}/{cfg['profile']['ssh_key_filename']} "
+        f"-p {cfg['tunnel']['ssh_port']} "
+        f"-L {cfg['tunnel']['local_port']}:{cfg['tunnel']['remote_host']}:{cfg['tunnel']['remote_port']} "
+        f"{cfg['tunnel']['username']}@{cfg['tunnel']['ssh_host']}"
     )
     expected_text = (
         f"Tunnel: {cfg['tunnel']['name']}\n"
