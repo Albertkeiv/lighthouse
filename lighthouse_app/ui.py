@@ -322,6 +322,26 @@ class ProfileDialog(simpledialog.Dialog):
         self.ip_entry.grid(row=1, column=1, sticky="ew")
         self.ip_entry.configure(state="disabled" if auto_default else "normal")
 
+        # Autoconfig settings grouped for clarity
+        self.autoconfig_frame = tk.LabelFrame(master, text="Autoconfig")
+        self.autoconfig_frame.grid(row=3, column=0, columnspan=2, sticky="ew")
+        self.autoconfig_frame.columnconfigure(1, weight=1)
+        self.logger.debug("Autoconfig fields prepared in labelled frame")
+
+        self.autoconfig_var = tk.BooleanVar(value=False)
+        autoconfig_chk = tk.Checkbutton(
+            self.autoconfig_frame,
+            text="Use autoconfig",
+            variable=self.autoconfig_var,
+            command=self._toggle_autoconfig_entry,
+        )
+        autoconfig_chk.grid(row=0, column=0, columnspan=2, sticky="w")
+
+        tk.Label(self.autoconfig_frame, text="URL:").grid(row=1, column=0, sticky="w")
+        self.autoconfig_entry = tk.Entry(self.autoconfig_frame)
+        self.autoconfig_entry.grid(row=1, column=1, sticky="ew")
+        self.autoconfig_entry.configure(state="disabled")
+
         if self.profile is not None:
             self.name_entry.insert(0, self.profile.get("name", ""))
             # Pre-select SSH key based on stored path
@@ -341,6 +361,14 @@ class ProfileDialog(simpledialog.Dialog):
         else:
             self.ip_entry.configure(state="normal")
             self.logger.info("Profile dialog: manual IP selected")
+
+    def _toggle_autoconfig_entry(self) -> None:
+        if self.autoconfig_var.get():
+            self.autoconfig_entry.configure(state="normal")
+            self.logger.info("Profile dialog: autoconfig enabled")
+        else:
+            self.autoconfig_entry.configure(state="disabled")
+            self.logger.info("Profile dialog: autoconfig disabled")
 
     def validate(self) -> bool:  # pragma: no cover - GUI validation
         name = self.name_entry.get().strip()
