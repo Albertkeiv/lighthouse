@@ -68,9 +68,10 @@ def test_manager_uses_table_and_double_click(monkeypatch) -> None:
 
     monkeypatch.setattr(ui, "tk", fake_tk)
     monkeypatch.setattr(ui, "ttk", fake_ttk)
+    controller = ui.KeyController()
     monkeypatch.setattr(
-        ui,
-        "load_ssh_keys",
+        controller,
+        "load_keys",
         lambda: [
             {
                 "name": cfg["key1"]["name"],
@@ -79,7 +80,7 @@ def test_manager_uses_table_and_double_click(monkeypatch) -> None:
         ],
     )
 
-    manager = ui.SSHKeyManager(None)
+    manager = ui.SSHKeyManager(None, controller)
 
     expected_values = (cfg["key1"]["name"], cfg["key1"]["description"])
     assert inserted == [expected_values]
@@ -143,7 +144,8 @@ def test_add_key_skips_success_popup(monkeypatch) -> None:
 
     monkeypatch.setattr(ui, "tk", fake_tk)
     monkeypatch.setattr(ui, "ttk", fake_ttk)
-    monkeypatch.setattr(ui, "load_ssh_keys", lambda: [])
+    controller = ui.KeyController()
+    monkeypatch.setattr(controller, "load_keys", lambda: [])
 
     class DummyDialog:
         def __init__(self, *_, **__):
@@ -158,7 +160,7 @@ def test_add_key_skips_success_popup(monkeypatch) -> None:
     def fake_create(name, path, desc):
         return {"name": name, "description": desc}
 
-    monkeypatch.setattr(ui, "create_ssh_key", fake_create)
+    monkeypatch.setattr(controller, "create_key", fake_create)
 
     called = {}
 
@@ -167,7 +169,7 @@ def test_add_key_skips_success_popup(monkeypatch) -> None:
 
     monkeypatch.setattr(ui.messagebox, "showinfo", fake_showinfo)
 
-    manager = ui.SSHKeyManager(None)
+    manager = ui.SSHKeyManager(None, controller)
     manager._on_add()
 
     assert inserted
@@ -226,9 +228,10 @@ def test_edit_key_skips_success_popup(monkeypatch) -> None:
     monkeypatch.setattr(ui, "tk", fake_tk)
     monkeypatch.setattr(ui, "ttk", fake_ttk)
 
+    controller = ui.KeyController()
     monkeypatch.setattr(
-        ui,
-        "load_ssh_keys",
+        controller,
+        "load_keys",
         lambda: [
             {
                 "name": cfg["key1"]["name"],
@@ -251,7 +254,7 @@ def test_edit_key_skips_success_popup(monkeypatch) -> None:
     def fake_update(original, new_name, path, desc):
         return {"name": new_name, "description": desc}
 
-    monkeypatch.setattr(ui, "update_ssh_key", fake_update)
+    monkeypatch.setattr(controller, "update_key", fake_update)
 
     called = {}
 
@@ -260,7 +263,7 @@ def test_edit_key_skips_success_popup(monkeypatch) -> None:
 
     monkeypatch.setattr(ui.messagebox, "showinfo", fake_showinfo)
 
-    manager = ui.SSHKeyManager(None)
+    manager = ui.SSHKeyManager(None, controller)
     manager._on_edit()
 
     assert manager.key_table.item(manager.key_table.last_id)["values"][0] == cfg["updated_key"]["name"]

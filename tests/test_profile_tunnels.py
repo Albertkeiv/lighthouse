@@ -6,14 +6,8 @@ import sys
 # Ensure application importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from lighthouse_app.profiles import (
-    create_profile,
-    add_tunnel,
-    update_tunnel,
-    delete_tunnel,
-    load_profiles,
-    PROFILES_FILE,
-)
+from lighthouse_app.profiles import load_profiles, PROFILES_FILE
+from lighthouse_app.services.profile_service import ProfileService
 
 
 def _load_cfg() -> configparser.ConfigParser:
@@ -28,9 +22,10 @@ def test_add_tunnel_and_storage(tmp_path):
 
     key = tmp_path / cfg["profile"]["ssh_key_filename"]
     key.touch()
-    create_profile(cfg["profile"]["name"], key, file_path=profiles_file)
+    service = ProfileService()
+    service.create_profile(cfg["profile"]["name"], key, file_path=profiles_file)
 
-    add_tunnel(
+    service.add_tunnel(
         cfg["profile"]["name"],
         cfg["tunnel"]["name"],
         cfg["tunnel"]["ssh_host"],
@@ -65,9 +60,10 @@ def test_add_tunnel_without_dns_name(tmp_path):
 
     key = tmp_path / cfg["profile"]["ssh_key_filename"]
     key.touch()
-    create_profile(cfg["profile"]["name"], key, file_path=profiles_file)
+    service = ProfileService()
+    service.create_profile(cfg["profile"]["name"], key, file_path=profiles_file)
 
-    add_tunnel(
+    service.add_tunnel(
         cfg["profile"]["name"],
         cfg["no_dns_tunnel"]["name"],
         cfg["no_dns_tunnel"]["ssh_host"],
@@ -92,9 +88,10 @@ def test_update_existing_tunnel(tmp_path):
 
     key = tmp_path / cfg["profile"]["ssh_key_filename"]
     key.touch()
-    create_profile(cfg["profile"]["name"], key, file_path=profiles_file)
+    service = ProfileService()
+    service.create_profile(cfg["profile"]["name"], key, file_path=profiles_file)
 
-    add_tunnel(
+    service.add_tunnel(
         cfg["profile"]["name"],
         cfg["tunnel"]["name"],
         cfg["tunnel"]["ssh_host"],
@@ -107,7 +104,7 @@ def test_update_existing_tunnel(tmp_path):
         file_path=profiles_file,
     )
 
-    update_tunnel(
+    service.update_tunnel(
         cfg["profile"]["name"],
         cfg["tunnel"]["name"],
         cfg["updated_tunnel"]["name"],
@@ -143,9 +140,10 @@ def test_delete_tunnel(tmp_path):
 
     key = tmp_path / cfg["profile"]["ssh_key_filename"]
     key.touch()
-    create_profile(cfg["profile"]["name"], key, file_path=profiles_file)
+    service = ProfileService()
+    service.create_profile(cfg["profile"]["name"], key, file_path=profiles_file)
 
-    add_tunnel(
+    service.add_tunnel(
         cfg["profile"]["name"],
         cfg["tunnel"]["name"],
         cfg["tunnel"]["ssh_host"],
@@ -158,7 +156,7 @@ def test_delete_tunnel(tmp_path):
         file_path=profiles_file,
     )
 
-    removed = delete_tunnel(
+    removed = service.delete_tunnel(
         cfg["profile"]["name"], cfg["tunnel"]["name"], file_path=profiles_file
     )
     assert removed is True

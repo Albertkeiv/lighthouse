@@ -6,13 +6,8 @@ import sys
 # Ensure application importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from lighthouse_app.ssh_keys import (
-    create_key,
-    load_keys,
-    delete_key,
-    update_key,
-    SSH_KEYS_FILE,
-)
+from lighthouse_app.ssh_keys import load_keys, SSH_KEYS_FILE
+from lighthouse_app.services.key_service import KeyService
 
 
 def _load_cfg() -> configparser.ConfigParser:
@@ -27,7 +22,8 @@ def test_key_creation_and_storage(tmp_path):
 
     key1_path = tmp_path / cfg["key1"]["filename"]
     key1_path.touch()
-    create_key(
+    service = KeyService()
+    service.create_key(
         cfg["key1"]["name"],
         key1_path,
         cfg["key1"]["description"],
@@ -36,7 +32,7 @@ def test_key_creation_and_storage(tmp_path):
 
     key2_path = tmp_path / cfg["key2"]["filename"]
     key2_path.touch()
-    create_key(
+    service.create_key(
         cfg["key2"]["name"],
         key2_path,
         cfg["key2"]["description"],
@@ -54,7 +50,8 @@ def test_update_and_delete_key(tmp_path):
 
     key_path = tmp_path / cfg["key1"]["filename"]
     key_path.touch()
-    create_key(
+    service = KeyService()
+    service.create_key(
         cfg["key1"]["name"],
         key_path,
         cfg["key1"]["description"],
@@ -63,7 +60,7 @@ def test_update_and_delete_key(tmp_path):
 
     updated_path = tmp_path / cfg["updated_key"]["filename"]
     updated_path.touch()
-    updated = update_key(
+    updated = service.update_key(
         cfg["key1"]["name"],
         cfg["updated_key"]["name"],
         updated_path,
@@ -73,6 +70,6 @@ def test_update_and_delete_key(tmp_path):
     assert updated["name"] == cfg["expected"]["updated_name"]
     assert updated["description"] == cfg["expected"]["updated_description"]
 
-    removed = delete_key(cfg["updated_key"]["name"], file_path=keys_file)
+    removed = service.delete_key(cfg["updated_key"]["name"], file_path=keys_file)
     assert removed is True
     assert load_keys(keys_file) == []
