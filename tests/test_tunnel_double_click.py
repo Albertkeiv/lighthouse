@@ -36,6 +36,8 @@ def test_tunnel_list_double_click_triggers_edit(monkeypatch) -> None:
             return ()
         def item(self, *_, **__):
             return ()
+        def tag_configure(self, *args, **kwargs):
+            pass
 
     class DummyWidget:
         def __init__(self, *_, **__):

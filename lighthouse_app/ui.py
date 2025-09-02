@@ -790,6 +790,8 @@ class LighthouseApp:
         self.profile_list.column("name", anchor="w", stretch=True)
         self.profile_list.column("ip", anchor="w", stretch=True)
         self.profile_list.pack(fill=tk.BOTH, expand=True)
+        # Highlight active profiles in green
+        self.profile_list.tag_configure("active", foreground="green")
         self.profile_list.bind("<<TreeviewSelect>>", self._on_profile_select)
         self.profile_list.bind("<Double-1>", self._on_profile_double_click)
         # Adjust column widths whenever the widget size changes
@@ -822,6 +824,8 @@ class LighthouseApp:
         self.tunnel_list.column("name", anchor="w", stretch=True)
         self.tunnel_list.column("target", anchor="w", stretch=True)
         self.tunnel_list.pack(fill=tk.BOTH, expand=True)
+        # Highlight active tunnels in green
+        self.tunnel_list.tag_configure("active", foreground="green")
         self.tunnel_list.bind("<<TreeviewSelect>>", self._on_tunnel_select)
         self.tunnel_list.bind("<Double-1>", self._on_tunnel_double_click)
         # Adjust column widths whenever the widget size changes
@@ -1039,6 +1043,8 @@ class LighthouseApp:
             self.logger.info(
                 "Loaded %d tunnels for profile '%s'", len(tunnels), profile_name
             )
+            # Ensure active tunnels are highlighted
+            self._update_highlights()
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception(
                 "Failed to load tunnels for profile '%s': %s", profile_name, exc
@@ -1054,8 +1060,47 @@ class LighthouseApp:
                     tk.END,
                     values=(profile["name"], profile["ip"]),
                 )
+            # Highlight any profiles with active tunnels
+            self._update_highlights()
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to load profiles: %s", exc)
+
+    def _update_highlights(self) -> None:
+        """Highlight active profiles and tunnels in the UI."""
+        try:
+            # Determine which profiles currently have active tunnels
+            active_profiles = {
+                name
+                for (name, _tunnel), fwd in self.active_tunnels.items()
+                if getattr(fwd, "is_active", False)
+            }
+            # Highlight profiles
+            for item in self.profile_list.get_children():
+                values = self.profile_list.item(item, "values")
+                profile_name = values[0] if values else ""
+                if profile_name in active_profiles:
+                    self.profile_list.item(item, tags=("active",))
+                else:
+                    self.profile_list.item(item, tags=())
+
+            # Highlight tunnels for currently selected profile
+            profile_sel = self.profile_list.selection()
+            current_profile = (
+                self.profile_list.item(profile_sel[0], "values")[0]
+                if profile_sel
+                else None
+            )
+            for item in self.tunnel_list.get_children():
+                values = self.tunnel_list.item(item, "values")
+                tunnel_name = values[0] if values else ""
+                forwarder = self.active_tunnels.get((current_profile, tunnel_name))
+                if forwarder and getattr(forwarder, "is_active", False):
+                    self.tunnel_list.item(item, tags=("active",))
+                else:
+                    self.tunnel_list.item(item, tags=())
+            self.logger.debug("Updated profile and tunnel highlights")
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to update highlights: %s", exc)
 
     def _on_new_profile(self) -> None:
         """Triggered when the 'New Profile' button is pressed."""
@@ -1396,6 +1441,7 @@ class LighthouseApp:
             )
             # Refresh status pane to show running state
             self._on_tunnel_select()
+            self._update_highlights()
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to start tunnel: %s", exc)
             messagebox.showerror("Error", str(exc))
@@ -1437,6 +1483,7 @@ class LighthouseApp:
             )
             # Refresh status pane to show stopped state
             self._on_tunnel_select()
+            self._update_highlights()
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to stop tunnel: %s", exc)
             messagebox.showerror("Error", str(exc))

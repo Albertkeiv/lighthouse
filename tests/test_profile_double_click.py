@@ -39,6 +39,8 @@ def test_profile_list_double_click_triggers_edit(monkeypatch) -> None:
             return ("item0",)
         def item(self, item_id, option=None):
             return ("profile", "127.0.0.1")
+        def tag_configure(self, *args, **kwargs):
+            pass
 
     class DummyWidget:
         def __init__(self, *_, **__):
