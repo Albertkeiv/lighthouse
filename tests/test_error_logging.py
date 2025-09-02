@@ -1,6 +1,7 @@
 """Ensure ERROR messages appear in the UI log container."""
 
 import configparser
+import logging
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -37,8 +38,9 @@ class DummyLogText:
         pass
 
 
-def test_error_messages_logged(monkeypatch) -> None:
+def test_error_messages_logged(monkeypatch, tmp_path) -> None:
     cfg = _load_cfg()
+    monkeypatch.chdir(tmp_path)
     root = object()
     # Only prevent UI construction; allow logging setup
     with patch.object(ui.LighthouseApp, "_build_ui", lambda self: None):
@@ -47,7 +49,19 @@ def test_error_messages_logged(monkeypatch) -> None:
     app.log_text = DummyLogText()
 
     message = cfg["logging"]["error_message"]
-    app.logger.error(message)
+    try:
+        raise RuntimeError("boom")
+    except RuntimeError:
+        app.logger.exception(message)
 
     assert message in app.log_text.content
+    assert "Traceback" not in app.log_text.content
+    for handler in logging.getLogger().handlers:
+        try:
+            handler.flush()
+        except Exception:
+            pass
+    log_content = Path("app.log").read_text()
+    assert message in log_content
+    assert "Traceback" in log_content
     assert app.log_text.state == "disabled"

@@ -806,6 +806,7 @@ class LighthouseApp:
                 logging.FileHandler("app.log"),
                 logging.StreamHandler(),
             ],
+            force=True,
         )
 
         class UILogHandler(logging.Handler):
@@ -817,7 +818,13 @@ class LighthouseApp:
 
             def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover - UI safety
                 try:
+                    exc_info = record.exc_info
+                    exc_text = getattr(record, "exc_text", None)
+                    record.exc_info = None
+                    record.exc_text = None
                     message = self.format(record)
+                    record.exc_info = exc_info
+                    record.exc_text = exc_text
                     self.app._append_log(message)
                 except Exception:
                     # Logging failures should never crash the application
