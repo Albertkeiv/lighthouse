@@ -11,6 +11,25 @@ import paramiko
 from sshtunnel import SSHTunnelForwarder, DEFAULT_SSH_DIRECTORY
 
 from .hosts import add_hosts_block, remove_hosts_block
+from .profiles import PROFILES_FILE, load_profiles as _load_profiles
+
+
+def load_profiles(file_path: Union[str, Path] = PROFILES_FILE) -> List[Dict[str, str]]:
+    """Load profile definitions for the UI layer.
+
+    This helper retains a simple API that tests can monkeypatch while
+    delegating the actual work to :mod:`lighthouse_app.profiles`.
+    Any unexpected error is logged and results in an empty list.
+    """
+    logger = logging.getLogger(__name__)
+    logger.debug("UI request to load profiles from %s", file_path)
+    try:
+        profiles = _load_profiles(file_path)
+        logger.debug("UI loaded %d profiles", len(profiles))
+        return profiles
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("UI failed to load profiles: %s", exc)
+        return []
 
 
 def _safe_read_private_key_file(
