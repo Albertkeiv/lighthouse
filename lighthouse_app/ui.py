@@ -632,6 +632,8 @@ class LighthouseApp:
         self.tunnel_list.pack(fill=tk.BOTH, expand=True)
         self.tunnel_list.bind("<<TreeviewSelect>>", self._on_tunnel_select)
         self.tunnel_list.bind("<Double-1>", self._on_tunnel_double_click)
+        # Adjust column widths whenever the widget size changes
+        self.tunnel_list.bind("<Configure>", self._on_tunnel_list_configure)
         new_tunnel_btn = tk.Button(
             tunnel_frame, text="New Tunnel", command=self._on_new_tunnel
         )
@@ -731,6 +733,23 @@ class LighthouseApp:
             )
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to resize profile list: %s", exc)
+
+    def _on_tunnel_list_configure(self, event: tk.Event) -> None:
+        """Resize tunnel list columns to fit available width."""
+        try:
+            total_width = max(getattr(event, "width", 0), 1)
+            name_width = total_width // 2
+            target_width = total_width - name_width
+            self.tunnel_list.column("name", width=name_width)
+            self.tunnel_list.column("target", width=target_width)
+            self.logger.info(
+                "Tunnel list resized to %s px: name=%s, target=%s",
+                total_width,
+                name_width,
+                target_width,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to resize tunnel list: %s", exc)
 
     def _on_tunnel_select(self, event: tk.Event) -> None:
         """Handle tunnel selection event."""
