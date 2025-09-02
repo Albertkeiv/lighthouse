@@ -151,8 +151,8 @@ def _safe_get_keys(logger=None, host_pkey_directories=None, allow_agent=False):
 SSHTunnelForwarder.read_private_key_file = staticmethod(_safe_read_private_key_file)
 SSHTunnelForwarder.get_keys = staticmethod(_safe_get_keys)
 
-from .controllers.profile_controller import ProfileController
-from .controllers.key_controller import KeyController
+from lighthouse_app.controllers.profile_controller import ProfileController
+from lighthouse_app.controllers.key_controller import KeyController
 
 PANE_LAYOUT_FILE = "pane_layout.ini"
 
@@ -1595,4 +1595,10 @@ def main() -> None:
 
 
 if __name__ == '__main__':
+    if __package__ in {None, ''}:
+        logging.error(
+            "This module must be executed as part of the lighthouse_app package.\n"
+            "Use 'python -m lighthouse_app.ui' instead."
+        )
+        raise SystemExit(1)
     main()
