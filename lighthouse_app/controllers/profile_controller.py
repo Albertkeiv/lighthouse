@@ -1,5 +1,6 @@
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Tuple
+from sshtunnel import SSHTunnelForwarder
 
 from ..profiles import PROFILES_FILE
 from ..services.profile_service import ProfileService
@@ -10,6 +11,20 @@ class ProfileController:
 
     def __init__(self, hosts_file: Union[str, Path] = "/etc/hosts") -> None:
         self.service = ProfileService(hosts_file)
+
+    @property
+    def active_tunnels(self) -> Dict[Tuple[str, str], SSHTunnelForwarder]:
+        """Expose active tunnels for UI access.
+
+        The service maintains the mapping, but the UI tests interact with
+        the controller.  Providing this proxy keeps the public API stable
+        while still delegating storage to the service layer.
+        """
+        return self.service.active_tunnels
+
+    @active_tunnels.setter
+    def active_tunnels(self, value: Dict[Tuple[str, str], SSHTunnelForwarder]) -> None:
+        self.service.active_tunnels = value
 
     # Profile operations -------------------------------------------------
     def load_profiles(self, file_path: Union[str, Path] = PROFILES_FILE) -> List[Dict[str, str]]:
@@ -107,7 +122,8 @@ class ProfileController:
         tunnel_name: str,
         file_path: Union[str, Path] = PROFILES_FILE,
     ) -> None:
-        self.service.start_tunnel(profile_name, tunnel_name, file_path)
+        profiles = self.load_profiles()
+        self.service.start_tunnel(profile_name, tunnel_name, file_path, profiles)
 
     def stop_tunnel(self, profile_name: str, tunnel_name: str) -> None:
         self.service.stop_tunnel(profile_name, tunnel_name)

@@ -8,7 +8,7 @@ from ..hosts import add_hosts_block, remove_hosts_block
 from ..profiles import (
     PROFILES_FILE,
     _allocate_ip,
-    load_profiles,
+    load_profiles as _load_profiles,
     save_profiles,
 )
 
@@ -25,6 +25,24 @@ class ProfileService:
     # ------------------------------------------------------------------
     # Profile management
     # ------------------------------------------------------------------
+    def load_profiles(
+        self, file_path: Union[str, Path] = PROFILES_FILE
+    ) -> List[Dict[str, str]]:
+        """Return profiles stored on disk.
+
+        This thin wrapper logs the access and delegates to the helper
+        function that performs the actual file I/O. Any unexpected
+        exception is caught to keep the application running smoothly.
+        """
+        self.logger.debug("Loading profiles from %s", file_path)
+        try:
+            profiles = _load_profiles(file_path)
+            self.logger.debug("Loaded %d profiles", len(profiles))
+            return profiles
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Unexpected error loading profiles: %s", exc)
+            return []
+
     def create_profile(
         self,
         name: str,
@@ -32,7 +50,7 @@ class ProfileService:
         ip: Optional[str] = None,
         file_path: Union[str, Path] = PROFILES_FILE,
     ) -> Dict[str, str]:
-        profiles = load_profiles(file_path)
+        profiles = _load_profiles(file_path)
         key_path = Path(ssh_key_path).expanduser()
         if not key_path.exists():
             raise FileNotFoundError(f"SSH key not found: {key_path}")
@@ -53,7 +71,7 @@ class ProfileService:
     def delete_profile(
         self, name: str, file_path: Union[str, Path] = PROFILES_FILE
     ) -> bool:
-        profiles = load_profiles(file_path)
+        profiles = _load_profiles(file_path)
         remaining = [p for p in profiles if p.get("name") != name]
         if len(remaining) == len(profiles):
             return False
@@ -69,7 +87,7 @@ class ProfileService:
         ip: Optional[str] = None,
         file_path: Union[str, Path] = PROFILES_FILE,
     ) -> Dict[str, str]:
-        profiles = load_profiles(file_path)
+        profiles = _load_profiles(file_path)
         profile = next((p for p in profiles if p.get("name") == original_name), None)
         if profile is None:
             raise ValueError(f"Profile '{original_name}' not found")
@@ -110,7 +128,7 @@ class ProfileService:
         file_path: Union[str, Path] = PROFILES_FILE,
     ) -> Dict[str, Union[str, int, List[str]]]:
         dns_names = [str(n).strip() for n in dns_names or [] if str(n).strip()]
-        profiles = load_profiles(file_path)
+        profiles = _load_profiles(file_path)
         profile = next((p for p in profiles if p.get("name") == profile_name), None)
         if profile is None:
             raise ValueError(f"Profile '{profile_name}' not found")
@@ -149,7 +167,7 @@ class ProfileService:
         file_path: Union[str, Path] = PROFILES_FILE,
     ) -> Dict[str, Union[str, int, List[str]]]:
         dns_names = [str(n).strip() for n in dns_names or [] if str(n).strip()]
-        profiles = load_profiles(file_path)
+        profiles = _load_profiles(file_path)
         profile = next((p for p in profiles if p.get("name") == profile_name), None)
         if profile is None:
             raise ValueError(f"Profile '{profile_name}' not found")
@@ -187,7 +205,7 @@ class ProfileService:
         tunnel_name: str,
         file_path: Union[str, Path] = PROFILES_FILE,
     ) -> bool:
-        profiles = load_profiles(file_path)
+        profiles = _load_profiles(file_path)
         profile = next((p for p in profiles if p.get("name") == profile_name), None)
         if profile is None:
             raise ValueError(f"Profile '{profile_name}' not found")
@@ -206,13 +224,18 @@ class ProfileService:
     # Tunnel lifecycle operations
     # ------------------------------------------------------------------
     def start_tunnel(
-        self, profile_name: str, tunnel_name: str, file_path: Union[str, Path] = PROFILES_FILE
+        self,
+        profile_name: str,
+        tunnel_name: str,
+        file_path: Union[str, Path] = PROFILES_FILE,
+        profiles: Optional[List[Dict[str, str]]] = None,
     ) -> None:
         key = (profile_name, tunnel_name)
         forwarder = self.active_tunnels.get(key)
         if forwarder and forwarder.is_active:
             raise RuntimeError(f"Tunnel '{tunnel_name}' is already running")
-        profiles = load_profiles(file_path)
+        if profiles is None:
+            profiles = self.load_profiles(file_path)
         profile = next((p for p in profiles if p.get("name") == profile_name), None)
         tunnel = None
         if profile:

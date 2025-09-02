@@ -5,6 +5,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lighthouse_app.controllers.profile_controller import ProfileController
+from lighthouse_app.profiles import PROFILES_FILE
 
 
 def _load_cfg() -> configparser.ConfigParser:
@@ -27,3 +28,19 @@ def test_controller_delegates_to_service(monkeypatch):
     result = controller.create_profile(cfg["profile1"]["name"], key_path)
     assert result["name"] == cfg["profile1"]["name"]
     assert called["args"][0] == cfg["profile1"]["name"]
+
+
+def test_load_profiles_delegates_to_service(monkeypatch):
+    cfg = _load_cfg()
+    controller = ProfileController()
+    expected = [{"name": cfg["profile1"]["name"]}]
+    called = {}
+
+    def fake_load(file_path=PROFILES_FILE):
+        called["file_path"] = file_path
+        return expected
+
+    monkeypatch.setattr(controller.service, "load_profiles", fake_load)
+    result = controller.load_profiles()
+    assert result == expected
+    assert called["file_path"] == PROFILES_FILE
