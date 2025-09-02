@@ -1,11 +1,12 @@
 import configparser
 import logging
-import subprocess
 from pathlib import Path
 from typing import Dict, List, Union, Optional
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 from ipaddress import ip_address
+
+from sshtunnel import SSHTunnelForwarder
 
 from .profiles import (
     create_profile,
@@ -626,8 +627,8 @@ class LighthouseApp:
         self.root = root
         self.cfg = cfg
         self.logger = logging.getLogger(__name__)
-        # Track running SSH tunnel processes; keys are (profile_name, tunnel_name)
-        self.active_tunnels: Dict[tuple, subprocess.Popen] = {}
+        # Track active SSH tunnels; keys are (profile_name, tunnel_name)
+        self.active_tunnels: Dict[tuple, SSHTunnelForwarder] = {}
         self._setup_logging()
         self._build_ui()
 
@@ -1222,8 +1223,8 @@ class LighthouseApp:
         profile_name = self.profile_list.item(profile_sel[0], "values")[0]
         tunnel_name = self.tunnel_list.item(tunnel_sel[0], "values")[0]
         key = (profile_name, tunnel_name)
-        proc = self.active_tunnels.get(key)
-        if proc and proc.poll() is None:
+        forwarder = self.active_tunnels.get(key)
+        if forwarder and forwarder.is_active:
             messagebox.showwarning(
                 "Running", f"Tunnel '{tunnel_name}' is already running.",
             )
@@ -1244,19 +1245,24 @@ class LighthouseApp:
                 raise ValueError(
                     f"Profile '{profile_name}' or tunnel '{tunnel_name}' not found"
                 )
-            cmd = [
-                "ssh",
-                "-i",
-                profile.get("ssh_key", ""),
-                "-p",
-                str(tunnel.get("ssh_port")),
-                "-N",
-                "-L",
-                f"{tunnel.get('local_port')}:{tunnel.get('remote_host')}:{tunnel.get('remote_port')}",
-                f"{tunnel.get('username')}@{tunnel.get('ssh_host')}",
-            ]
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            self.active_tunnels[key] = proc
+            bind_ip = profile.get("ip")
+            if not bind_ip:
+                raise ValueError(f"Profile '{profile_name}' has no IP address")
+            forwarder = SSHTunnelForwarder(
+                ssh_address_or_host=(tunnel.get("ssh_host"), int(tunnel.get("ssh_port"))),
+                ssh_username=tunnel.get("username"),
+                ssh_pkey=profile.get("ssh_key"),
+                # Accept any server fingerprint by not providing host key
+                ssh_host_key=None,
+                host_pkey_directories=[],
+                allow_agent=False,
+                ssh_config_file=None,
+                # Bind the local side to the profile's dedicated IP
+                local_bind_address=(bind_ip, int(tunnel.get("local_port"))),
+                remote_bind_address=(tunnel.get("remote_host"), int(tunnel.get("remote_port"))),
+            )
+            forwarder.start()
+            self.active_tunnels[key] = forwarder
             self.logger.info(
                 "Started tunnel '%s' for profile '%s'", tunnel_name, profile_name
             )
@@ -1284,8 +1290,8 @@ class LighthouseApp:
         profile_name = self.profile_list.item(profile_sel[0], "values")[0]
         tunnel_name = self.tunnel_list.item(tunnel_sel[0], "values")[0]
         key = (profile_name, tunnel_name)
-        proc = self.active_tunnels.get(key)
-        if not proc or proc.poll() is not None:
+        forwarder = self.active_tunnels.get(key)
+        if not forwarder or not forwarder.is_active:
             messagebox.showwarning(
                 "Not running", f"Tunnel '{tunnel_name}' is not running.",
             )
@@ -1294,8 +1300,7 @@ class LighthouseApp:
             )
             return
         try:
-            proc.terminate()
-            proc.wait(timeout=5)
+            forwarder.stop()
             del self.active_tunnels[key]
             self.logger.info(
                 "Stopped tunnel '%s' for profile '%s'", tunnel_name, profile_name

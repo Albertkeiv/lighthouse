@@ -29,7 +29,7 @@ def _make_app(monkeypatch, cfg):
     return app
 
 
-def test_start_tunnel_invokes_popen(monkeypatch) -> None:
+def test_start_tunnel_invokes_forwarder(monkeypatch) -> None:
     cfg = _load_cfg()
     app = _make_app(monkeypatch, cfg)
 
@@ -37,6 +37,7 @@ def test_start_tunnel_invokes_popen(monkeypatch) -> None:
     tunnel_cfg = cfg["tunnel"]
     tunnel_name = tunnel_cfg["name"]
     ssh_key = Path(cfg["profile"]["ssh_dir"]) / cfg["profile"]["ssh_key_filename"]
+    profile_ip = cfg["profile"]["ip"]
 
     class DummyProfileList:
         def selection(self):
@@ -59,6 +60,7 @@ def test_start_tunnel_invokes_popen(monkeypatch) -> None:
         {
             "name": profile_name,
             "ssh_key": str(ssh_key),
+            "ip": profile_ip,
             "tunnels": [
                 {
                     "name": tunnel_name,
@@ -81,37 +83,42 @@ def test_start_tunnel_invokes_popen(monkeypatch) -> None:
 
     called = {}
 
-    class DummyProcess:
-        def __init__(self, cmd, **kwargs):
-            called["cmd"] = cmd
+    class DummyForwarder:
+        def __init__(self, **kwargs):
             called["kwargs"] = kwargs
+            self.started = False
 
-        def poll(self):
-            return None
+        def start(self):
+            self.started = True
 
-    monkeypatch.setattr(ui.subprocess, "Popen", DummyProcess)
+        @property
+        def is_active(self):
+            return self.started
+
+    monkeypatch.setattr(ui, "SSHTunnelForwarder", DummyForwarder)
     monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
     monkeypatch.setattr(ui.messagebox, "showwarning", lambda *a, **k: None)
 
     app.active_tunnels = {}
     app._on_start_tunnel()
 
-    expected_cmd = [
-        "ssh",
-        "-i",
-        str(ssh_key),
-        "-p",
-        tunnel_cfg["ssh_port"],
-        "-N",
-        "-L",
-        f"{tunnel_cfg['local_port']}:{tunnel_cfg['remote_host']}:{tunnel_cfg['remote_port']}",
-        f"{tunnel_cfg['username']}@{tunnel_cfg['ssh_host']}",
-    ]
-    assert called["cmd"] == expected_cmd
+    expected_kwargs = {
+        "ssh_address_or_host": (tunnel_cfg["ssh_host"], int(tunnel_cfg["ssh_port"])),
+        "ssh_username": tunnel_cfg["username"],
+        "ssh_pkey": str(ssh_key),
+        "ssh_host_key": None,
+        "host_pkey_directories": [],
+        "allow_agent": False,
+        "ssh_config_file": None,
+        "local_bind_address": (profile_ip, int(tunnel_cfg["local_port"])),
+        "remote_bind_address": (tunnel_cfg["remote_host"], int(tunnel_cfg["remote_port"])),
+    }
+
+    assert called["kwargs"] == expected_kwargs
     assert (profile_name, tunnel_name) in app.active_tunnels
 
 
-def test_stop_tunnel_terminates_process(monkeypatch) -> None:
+def test_stop_tunnel_stops_forwarder(monkeypatch) -> None:
     cfg = _load_cfg()
     app = _make_app(monkeypatch, cfg)
 
@@ -135,27 +142,27 @@ def test_stop_tunnel_terminates_process(monkeypatch) -> None:
     app.profile_list = DummyProfileList()
     app.tunnel_list = DummyTunnelList()
 
-    class DummyProcess:
+    class DummyForwarder:
         def __init__(self):
-            self.terminated = False
+            self.stopped = False
+            self._active = True
 
-        def poll(self):
-            return None
+        def stop(self):
+            self.stopped = True
+            self._active = False
 
-        def terminate(self):
-            self.terminated = True
+        @property
+        def is_active(self):
+            return self._active
 
-        def wait(self, timeout=None):
-            pass
-
-    proc = DummyProcess()
-    app.active_tunnels = {(profile_name, tunnel_name): proc}
+    fwd = DummyForwarder()
+    app.active_tunnels = {(profile_name, tunnel_name): fwd}
 
     monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
     monkeypatch.setattr(ui.messagebox, "showwarning", lambda *a, **k: None)
 
     app._on_stop_tunnel()
 
-    assert proc.terminated is True
+    assert fwd.stopped is True
     assert (profile_name, tunnel_name) not in app.active_tunnels
 
