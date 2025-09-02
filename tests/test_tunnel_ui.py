@@ -55,17 +55,23 @@ def test_new_tunnel_skips_success_popup(monkeypatch) -> None:
         def __init__(self, *_, **__):
             self.result = (
                 cfg["tunnel"]["name"],
+                cfg["tunnel"]["ssh_host"],
+                cfg["tunnel"]["username"],
                 int(cfg["tunnel"]["local_port"]),
                 cfg["tunnel"]["remote_host"],
                 int(cfg["tunnel"]["remote_port"]),
+                int(cfg["tunnel"]["ssh_port"]),
                 [d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()],
             )
     monkeypatch.setattr(ui, "TunnelDialog", DummyDialog)
 
-    def _add_tunnel(profile, name, local, host, remote, dns, *_, **__):
+    def _add_tunnel(profile, name, ssh_host, username, local, host, remote, ssh_port, dns, *_, **__):
         assert dns == [
             d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()
         ]
+        assert ssh_host == cfg["tunnel"]["ssh_host"]
+        assert username == cfg["tunnel"]["username"]
+        assert ssh_port == int(cfg["tunnel"]["ssh_port"])
         return {"name": cfg["tunnel"]["name"]}
     monkeypatch.setattr(ui, "add_tunnel", _add_tunnel)
 
@@ -117,6 +123,9 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
                         "local_port": int(cfg["tunnel"]["local_port"]),
                         "remote_host": cfg["tunnel"]["remote_host"],
                         "remote_port": int(cfg["tunnel"]["remote_port"]),
+                        "ssh_host": cfg["tunnel"]["ssh_host"],
+                        "username": cfg["tunnel"]["username"],
+                        "ssh_port": int(cfg["tunnel"]["ssh_port"]),
                         "dns_names": [
                             d.strip()
                             for d in cfg["tunnel"]["dns_names"].split(",")
@@ -132,9 +141,12 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
         def __init__(self, *_, **__):
             self.result = (
                 cfg["updated_tunnel"]["name"],
+                cfg["updated_tunnel"]["ssh_host"],
+                cfg["updated_tunnel"]["username"],
                 int(cfg["updated_tunnel"]["local_port"]),
                 cfg["updated_tunnel"]["remote_host"],
                 int(cfg["updated_tunnel"]["remote_port"]),
+                int(cfg["updated_tunnel"]["ssh_port"]),
                 [
                     d.strip()
                     for d in cfg["updated_tunnel"]["dns_names"].split(",")
@@ -143,12 +155,28 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
             )
     monkeypatch.setattr(ui, "TunnelDialog", DummyDialog)
 
-    def _update_tunnel(profile, orig, new, local, host, remote, dns, *_, **__):
+    def _update_tunnel(
+        profile,
+        orig,
+        new,
+        ssh_host,
+        username,
+        local,
+        host,
+        remote,
+        ssh_port,
+        dns,
+        *_,
+        **__,
+    ):
         assert dns == [
             d.strip()
             for d in cfg["updated_tunnel"]["dns_names"].split(",")
             if d.strip()
         ]
+        assert ssh_host == cfg["updated_tunnel"]["ssh_host"]
+        assert username == cfg["updated_tunnel"]["username"]
+        assert ssh_port == int(cfg["updated_tunnel"]["ssh_port"])
         return None
     monkeypatch.setattr(ui, "update_tunnel", _update_tunnel)
 

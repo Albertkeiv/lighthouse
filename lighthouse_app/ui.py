@@ -327,18 +327,29 @@ class TunnelDialog(simpledialog.Dialog):
         tk.Label(master, text="Local port:").grid(row=1, column=0, sticky="w")
         self.local_entry = tk.Entry(master)
         self.local_entry.grid(row=1, column=1)
+        tk.Label(master, text="SSH host:").grid(row=2, column=0, sticky="w")
+        self.ssh_host_entry = tk.Entry(master)
+        self.ssh_host_entry.grid(row=2, column=1)
 
-        tk.Label(master, text="Remote host:").grid(row=2, column=0, sticky="w")
+        tk.Label(master, text="Username:").grid(row=3, column=0, sticky="w")
+        self.user_entry = tk.Entry(master)
+        self.user_entry.grid(row=3, column=1)
+
+        tk.Label(master, text="SSH port:").grid(row=4, column=0, sticky="w")
+        self.ssh_port_entry = tk.Entry(master)
+        self.ssh_port_entry.grid(row=4, column=1)
+
+        tk.Label(master, text="Remote host:").grid(row=5, column=0, sticky="w")
         self.host_entry = tk.Entry(master)
-        self.host_entry.grid(row=2, column=1)
+        self.host_entry.grid(row=5, column=1)
 
-        tk.Label(master, text="Remote port:").grid(row=3, column=0, sticky="w")
+        tk.Label(master, text="Remote port:").grid(row=6, column=0, sticky="w")
         self.remote_entry = tk.Entry(master)
-        self.remote_entry.grid(row=3, column=1)
+        self.remote_entry.grid(row=6, column=1)
 
-        tk.Label(master, text="DNS names:").grid(row=4, column=0, sticky="nw")
+        tk.Label(master, text="DNS names:").grid(row=7, column=0, sticky="nw")
         dns_frame = tk.Frame(master)
-        dns_frame.grid(row=4, column=1, sticky="w")
+        dns_frame.grid(row=7, column=1, sticky="w")
         self.dns_list = tk.Listbox(dns_frame, height=3)
         self.dns_list.grid(row=0, column=0, rowspan=3, sticky="nsew")
         self.dns_entry = tk.Entry(dns_frame)
@@ -352,6 +363,9 @@ class TunnelDialog(simpledialog.Dialog):
         if self.tunnel is not None:
             self.name_entry.insert(0, self.tunnel.get("name", ""))
             self.local_entry.insert(0, str(self.tunnel.get("local_port", "")))
+            self.ssh_host_entry.insert(0, self.tunnel.get("ssh_host", ""))
+            self.user_entry.insert(0, self.tunnel.get("username", ""))
+            self.ssh_port_entry.insert(0, str(self.tunnel.get("ssh_port", "")))
             self.host_entry.insert(0, self.tunnel.get("remote_host", ""))
             self.remote_entry.insert(0, str(self.tunnel.get("remote_port", "")))
             existing_dns = self.tunnel.get("dns_names") or []
@@ -365,12 +379,15 @@ class TunnelDialog(simpledialog.Dialog):
     def validate(self) -> bool:  # pragma: no cover - GUI validation
         name = self.name_entry.get().strip()
         local = self.local_entry.get().strip()
+        ssh_host = self.ssh_host_entry.get().strip()
+        username = self.user_entry.get().strip()
+        ssh_port = self.ssh_port_entry.get().strip()
         host = self.host_entry.get().strip()
         remote = self.remote_entry.get().strip()
         # Collect DNS names; the list can be empty
         self.dns_names = list(self.dns_list.get(0, tk.END))
 
-        if not all([name, local, host, remote]):
+        if not all([name, local, ssh_host, username, ssh_port, host, remote]):
             messagebox.showerror("Error", "All fields must be provided")
             return False
 
@@ -383,7 +400,11 @@ class TunnelDialog(simpledialog.Dialog):
             self.logger.warning("Tunnel dialog aborted: name '%s' exists", name)
             return False
 
-        for label, value in {"Local port": local, "Remote port": remote}.items():
+        for label, value in {
+            "Local port": local,
+            "SSH port": ssh_port,
+            "Remote port": remote,
+        }.items():
             try:
                 port = int(value)
             except ValueError:
@@ -400,10 +421,22 @@ class TunnelDialog(simpledialog.Dialog):
     def apply(self) -> None:  # pragma: no cover - GUI side effect
         name = self.name_entry.get().strip()
         local = int(self.local_entry.get().strip())
+        ssh_host = self.ssh_host_entry.get().strip()
+        username = self.user_entry.get().strip()
+        ssh_port = int(self.ssh_port_entry.get().strip())
         host = self.host_entry.get().strip()
         remote = int(self.remote_entry.get().strip())
         dns_list = self.dns_names
-        self.result = (name, local, host, remote, dns_list)
+        self.result = (
+            name,
+            ssh_host,
+            username,
+            local,
+            host,
+            remote,
+            ssh_port,
+            dns_list,
+        )
         self.logger.info(
             "Tunnel dialog confirmed for '%s' with DNS '%s'",
             name,
@@ -816,9 +849,10 @@ class LighthouseApp:
                 )
             if profile and tunnel:
                 cmd = (
-                    f"ssh -i {profile.get('ssh_key', '')} -L "
-                    f"{tunnel.get('local_port')}:{tunnel.get('remote_host')}:"
-                    f"{tunnel.get('remote_port')} {profile.get('ip', '')}"
+                    f"ssh -i {profile.get('ssh_key', '')} -p {tunnel.get('ssh_port')} "
+                    f"-L {tunnel.get('local_port')}:{tunnel.get('remote_host')}:"
+                    f"{tunnel.get('remote_port')} "
+                    f"{tunnel.get('username')}@{tunnel.get('ssh_host')}"
                 )
                 dns = ", ".join(tunnel.get("dns_names", []))
                 info_lines = [f"Tunnel: {tunnel_name}", f"Command: {cmd}"]
@@ -993,10 +1027,27 @@ class LighthouseApp:
         if not getattr(dialog, "result", None):
             self.logger.info("Tunnel creation cancelled by user")
             return
-        name, local_port, host, remote_port, dns_names = dialog.result
+        (
+            name,
+            ssh_host,
+            username,
+            local_port,
+            host,
+            remote_port,
+            ssh_port,
+            dns_names,
+        ) = dialog.result
         try:
             tunnel = add_tunnel(
-                profile_name, name, local_port, host, remote_port, dns_names
+                profile_name,
+                name,
+                ssh_host,
+                username,
+                local_port,
+                host,
+                remote_port,
+                ssh_port,
+                dns_names,
             )
             target = f"{host}:{remote_port}"
             self.tunnel_list.insert("", tk.END, values=(tunnel["name"], target))
@@ -1059,15 +1110,27 @@ class LighthouseApp:
         if not getattr(dialog, "result", None):
             self.logger.info("Tunnel edit cancelled by user")
             return
-        new_name, local_port, host, remote_port, dns_names = dialog.result
+        (
+            new_name,
+            ssh_host,
+            username,
+            local_port,
+            host,
+            remote_port,
+            ssh_port,
+            dns_names,
+        ) = dialog.result
         try:
             update_tunnel(
                 profile_name,
                 tunnel_name,
                 new_name,
+                ssh_host,
+                username,
                 local_port,
                 host,
                 remote_port,
+                ssh_port,
                 dns_names,
             )
             target = f"{host}:{remote_port}"
