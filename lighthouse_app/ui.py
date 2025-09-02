@@ -1,5 +1,6 @@
 import configparser
 import logging
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Union, Optional
 import tkinter as tk
@@ -625,6 +626,8 @@ class LighthouseApp:
         self.root = root
         self.cfg = cfg
         self.logger = logging.getLogger(__name__)
+        # Track running SSH tunnel processes; keys are (profile_name, tunnel_name)
+        self.active_tunnels: Dict[tuple, subprocess.Popen] = {}
         self._setup_logging()
         self._build_ui()
 
@@ -718,6 +721,14 @@ class LighthouseApp:
             tunnel_frame, text="Delete Tunnel", command=self._on_delete_tunnel
         )
         delete_tunnel_btn.pack(fill="x")
+        start_tunnel_btn = tk.Button(
+            tunnel_frame, text="Start Tunnel", command=self._on_start_tunnel
+        )
+        start_tunnel_btn.pack(fill="x")
+        stop_tunnel_btn = tk.Button(
+            tunnel_frame, text="Stop Tunnel", command=self._on_stop_tunnel
+        )
+        stop_tunnel_btn.pack(fill="x")
 
         # Info and log area
         info_frame = tk.Frame(self.top_pane)
@@ -1189,6 +1200,108 @@ class LighthouseApp:
                 )
         except Exception as exc:
             self.logger.exception("Failed to delete tunnel: %s", exc)
+            messagebox.showerror("Error", str(exc))
+
+    def _on_start_tunnel(self) -> None:
+        """Start the selected SSH tunnel."""
+        self.logger.info("Tunnel start requested")
+        profile_sel = self.profile_list.selection()
+        if not profile_sel:
+            messagebox.showwarning(
+                "No profile", "Please select a profile to start its tunnel.",
+            )
+            self.logger.info("Tunnel start cancelled: no profile selected")
+            return
+        tunnel_sel = self.tunnel_list.selection()
+        if not tunnel_sel:
+            messagebox.showwarning(
+                "No selection", "Please select a tunnel to start.",
+            )
+            self.logger.info("Tunnel start cancelled: no tunnel selected")
+            return
+        profile_name = self.profile_list.item(profile_sel[0], "values")[0]
+        tunnel_name = self.tunnel_list.item(tunnel_sel[0], "values")[0]
+        key = (profile_name, tunnel_name)
+        proc = self.active_tunnels.get(key)
+        if proc and proc.poll() is None:
+            messagebox.showwarning(
+                "Running", f"Tunnel '{tunnel_name}' is already running.",
+            )
+            self.logger.info(
+                "Tunnel '%s' already running for profile '%s'", tunnel_name, profile_name
+            )
+            return
+        try:
+            profiles = load_profiles()
+            profile = next((p for p in profiles if p.get("name") == profile_name), None)
+            tunnel = None
+            if profile:
+                tunnel = next(
+                    (t for t in profile.get("tunnels", []) if t.get("name") == tunnel_name),
+                    None,
+                )
+            if not profile or not tunnel:
+                raise ValueError(
+                    f"Profile '{profile_name}' or tunnel '{tunnel_name}' not found"
+                )
+            cmd = [
+                "ssh",
+                "-i",
+                profile.get("ssh_key", ""),
+                "-p",
+                str(tunnel.get("ssh_port")),
+                "-N",
+                "-L",
+                f"{tunnel.get('local_port')}:{tunnel.get('remote_host')}:{tunnel.get('remote_port')}",
+                f"{tunnel.get('username')}@{tunnel.get('ssh_host')}",
+            ]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.active_tunnels[key] = proc
+            self.logger.info(
+                "Started tunnel '%s' for profile '%s'", tunnel_name, profile_name
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to start tunnel: %s", exc)
+            messagebox.showerror("Error", str(exc))
+
+    def _on_stop_tunnel(self) -> None:
+        """Stop the selected SSH tunnel if running."""
+        self.logger.info("Tunnel stop requested")
+        profile_sel = self.profile_list.selection()
+        if not profile_sel:
+            messagebox.showwarning(
+                "No profile", "Please select a profile to stop its tunnel.",
+            )
+            self.logger.info("Tunnel stop cancelled: no profile selected")
+            return
+        tunnel_sel = self.tunnel_list.selection()
+        if not tunnel_sel:
+            messagebox.showwarning(
+                "No selection", "Please select a tunnel to stop.",
+            )
+            self.logger.info("Tunnel stop cancelled: no tunnel selected")
+            return
+        profile_name = self.profile_list.item(profile_sel[0], "values")[0]
+        tunnel_name = self.tunnel_list.item(tunnel_sel[0], "values")[0]
+        key = (profile_name, tunnel_name)
+        proc = self.active_tunnels.get(key)
+        if not proc or proc.poll() is not None:
+            messagebox.showwarning(
+                "Not running", f"Tunnel '{tunnel_name}' is not running.",
+            )
+            self.logger.info(
+                "Tunnel '%s' not running for profile '%s'", tunnel_name, profile_name
+            )
+            return
+        try:
+            proc.terminate()
+            proc.wait(timeout=5)
+            del self.active_tunnels[key]
+            self.logger.info(
+                "Stopped tunnel '%s' for profile '%s'", tunnel_name, profile_name
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to stop tunnel: %s", exc)
             messagebox.showerror("Error", str(exc))
 
     def _on_manage_ssh_key(self) -> None:

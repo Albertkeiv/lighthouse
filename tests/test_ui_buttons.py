@@ -105,6 +105,8 @@ def test_buttons_labels(monkeypatch) -> None:
     expected_new_tunnel = cfg["buttons"]["new_tunnel"]
     expected_edit_tunnel = cfg["buttons"]["edit_tunnel"]
     expected_delete_tunnel = cfg["buttons"]["delete_tunnel"]
+    expected_start_tunnel = cfg["buttons"]["start_tunnel"]
+    expected_stop_tunnel = cfg["buttons"]["stop_tunnel"]
 
     assert expected_settings in labels
     assert expected_manage in labels
@@ -112,3 +114,5 @@ def test_buttons_labels(monkeypatch) -> None:
     assert expected_new_tunnel in labels
     assert expected_edit_tunnel in labels
     assert expected_delete_tunnel in labels
+    assert expected_start_tunnel in labels
+    assert expected_stop_tunnel in labels
