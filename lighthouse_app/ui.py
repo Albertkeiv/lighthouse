@@ -789,13 +789,58 @@ class LighthouseApp:
     def _on_tunnel_select(self, event: tk.Event) -> None:
         """Handle tunnel selection event."""
         selection = event.widget.selection()
-        if selection:
-            item_id = selection[0]
-            values = event.widget.item(item_id, "values")
-            if len(values) >= 2:
-                self.logger.info("Tunnel selected: %s -> %s", values[0], values[1])
-            elif values:
-                self.logger.info("Tunnel selected: %s", values[0])
+        if not selection:
+            return
+        item_id = selection[0]
+        values = event.widget.item(item_id, "values")
+        tunnel_name = values[0] if values else ""
+        if len(values) >= 2:
+            self.logger.info("Tunnel selected: %s -> %s", values[0], values[1])
+        elif values:
+            self.logger.info("Tunnel selected: %s", tunnel_name)
+
+        try:
+            profile_sel = self.profile_list.selection()
+            profile_name = (
+                self.profile_list.item(profile_sel[0], "values")[0]
+                if profile_sel
+                else ""
+            )
+            profiles = load_profiles()
+            profile = next((p for p in profiles if p.get("name") == profile_name), None)
+            tunnel = None
+            if profile:
+                tunnel = next(
+                    (t for t in profile.get("tunnels", []) if t.get("name") == tunnel_name),
+                    None,
+                )
+            if profile and tunnel:
+                cmd = (
+                    f"ssh -i {profile.get('ssh_key', '')} -L "
+                    f"{tunnel.get('local_port')}:{tunnel.get('remote_host')}:"
+                    f"{tunnel.get('remote_port')} {profile.get('ip', '')}"
+                )
+                dns = ", ".join(tunnel.get("dns_names", []))
+                info_lines = [f"Tunnel: {tunnel_name}", f"Command: {cmd}"]
+                if dns:
+                    info_lines.append(f"DNS: {dns}")
+                self.status_text.delete("1.0", tk.END)
+                self.status_text.insert(tk.END, "\n".join(info_lines))
+                self.logger.info(
+                    "Displayed tunnel info for '%s' in profile '%s'",
+                    tunnel_name,
+                    profile_name,
+                )
+            else:
+                self.status_text.delete("1.0", tk.END)
+                self.status_text.insert(tk.END, "<TUNNEL_INFO_AND_STATUS>")
+                self.logger.warning(
+                    "Failed to display tunnel info: profile '%s' or tunnel '%s' not found",
+                    profile_name,
+                    tunnel_name,
+                )
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to display tunnel info: %s", exc)
 
     def _on_tunnel_double_click(self, event: tk.Event) -> None:  # pragma: no cover - GUI event
         """Open the tunnel edit dialog when a tunnel is double-clicked."""
