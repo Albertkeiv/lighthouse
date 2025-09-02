@@ -58,12 +58,14 @@ def test_new_tunnel_skips_success_popup(monkeypatch) -> None:
                 int(cfg["tunnel"]["local_port"]),
                 cfg["tunnel"]["remote_host"],
                 int(cfg["tunnel"]["remote_port"]),
-                cfg["tunnel"]["dns_name"],
+                [d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()],
             )
     monkeypatch.setattr(ui, "TunnelDialog", DummyDialog)
-    
+
     def _add_tunnel(profile, name, local, host, remote, dns, *_, **__):
-        assert dns == cfg["tunnel"]["dns_name"]
+        assert dns == [
+            d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()
+        ]
         return {"name": cfg["tunnel"]["name"]}
     monkeypatch.setattr(ui, "add_tunnel", _add_tunnel)
 
@@ -115,7 +117,11 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
                         "local_port": int(cfg["tunnel"]["local_port"]),
                         "remote_host": cfg["tunnel"]["remote_host"],
                         "remote_port": int(cfg["tunnel"]["remote_port"]),
-                        "dns_name": cfg["tunnel"]["dns_name"],
+                        "dns_names": [
+                            d.strip()
+                            for d in cfg["tunnel"]["dns_names"].split(",")
+                            if d.strip()
+                        ],
                     }
                 ],
             }
@@ -129,12 +135,20 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
                 int(cfg["updated_tunnel"]["local_port"]),
                 cfg["updated_tunnel"]["remote_host"],
                 int(cfg["updated_tunnel"]["remote_port"]),
-                cfg["updated_tunnel"]["dns_name"],
+                [
+                    d.strip()
+                    for d in cfg["updated_tunnel"]["dns_names"].split(",")
+                    if d.strip()
+                ],
             )
     monkeypatch.setattr(ui, "TunnelDialog", DummyDialog)
-    
+
     def _update_tunnel(profile, orig, new, local, host, remote, dns, *_, **__):
-        assert dns == cfg["updated_tunnel"]["dns_name"]
+        assert dns == [
+            d.strip()
+            for d in cfg["updated_tunnel"]["dns_names"].split(",")
+            if d.strip()
+        ]
         return None
     monkeypatch.setattr(ui, "update_tunnel", _update_tunnel)
 

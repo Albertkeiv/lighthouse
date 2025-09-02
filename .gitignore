@@ -3,3 +3,4 @@ __pycache__/
 app.log
 pane_layout.ini
 profiles.json
+.venv/

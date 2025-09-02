@@ -215,9 +215,9 @@ def add_tunnel(
     local_port: int,
     remote_host: str,
     remote_port: int,
-    dns_name: str = "",
+    dns_names: Optional[List[str]] = None,
     file_path: Union[str, Path] = PROFILES_FILE,
-) -> Dict[str, Union[str, int]]:
+) -> Dict[str, Union[str, int, List[str]]]:
     """Create and attach an SSH tunnel to a profile.
 
     Parameters
@@ -232,18 +232,18 @@ def add_tunnel(
         Remote host to connect to.
     remote_port: int
         Remote port to connect to.
-    dns_name: str, optional
-        DNS name associated with the tunnel. Can be an empty string.
+    dns_names: list[str], optional
+        DNS names associated with the tunnel. Can be an empty list.
     file_path: str | Path, optional
         Path to the profiles JSON file. Defaults to ``PROFILES_FILE``.
     """
     logger = logging.getLogger(__name__)
-    dns_name = "" if dns_name is None else str(dns_name).strip()
+    dns_names = [str(n).strip() for n in dns_names or [] if str(n).strip()]
     logger.info(
-        "Request to add tunnel '%s' to profile '%s' with DNS name '%s'",
+        "Request to add tunnel '%s' to profile '%s' with DNS names '%s'",
         tunnel_name,
         profile_name,
-        dns_name,
+        ", ".join(dns_names),
     )
 
     if not profile_name or not tunnel_name:
@@ -279,7 +279,7 @@ def add_tunnel(
         "local_port": l_port,
         "remote_host": remote_host,
         "remote_port": r_port,
-        "dns_name": dns_name,
+        "dns_names": dns_names,
     }
     tunnels.append(tunnel)
     save_profiles(profiles, file_path)
@@ -294,9 +294,9 @@ def update_tunnel(
     local_port: int,
     remote_host: str,
     remote_port: int,
-    dns_name: str = "",
+    dns_names: Optional[List[str]] = None,
     file_path: Union[str, Path] = PROFILES_FILE,
-) -> Dict[str, Union[str, int]]:
+) -> Dict[str, Union[str, int, List[str]]]:
     """Update parameters of an existing SSH tunnel.
 
     Parameters
@@ -313,18 +313,18 @@ def update_tunnel(
         Remote host to connect to.
     remote_port: int
         Remote port to connect to.
-    dns_name: str, optional
-        DNS name associated with the tunnel. Can be an empty string.
+    dns_names: list[str], optional
+        DNS names associated with the tunnel. Can be an empty list.
     file_path: str | Path, optional
         Path to the profiles JSON file. Defaults to ``PROFILES_FILE``.
     """
     logger = logging.getLogger(__name__)
-    dns_name = "" if dns_name is None else str(dns_name).strip()
+    dns_names = [str(n).strip() for n in dns_names or [] if str(n).strip()]
     logger.info(
-        "Request to update tunnel '%s' in profile '%s' with DNS name '%s'",
+        "Request to update tunnel '%s' in profile '%s' with DNS names '%s'",
         tunnel_name,
         profile_name,
-        dns_name,
+        ", ".join(dns_names),
     )
 
     if not profile_name or not new_name or not tunnel_name:
@@ -370,7 +370,7 @@ def update_tunnel(
             "local_port": l_port,
             "remote_host": remote_host,
             "remote_port": r_port,
-            "dns_name": dns_name,
+            "dns_names": dns_names,
         }
     )
     save_profiles(profiles, file_path)
