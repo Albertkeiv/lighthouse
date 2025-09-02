@@ -88,6 +88,9 @@ def test_restore_pane_layout_after_panes(monkeypatch):
                 self.columns[name] = width
             return self.columns.get(name, 0)
 
+        def tag_configure(self, *args, **kwargs):
+            pass
+
     fake_tk = types.SimpleNamespace(
         PanedWindow=DummyPanedWindow,
         Frame=DummyWidget,

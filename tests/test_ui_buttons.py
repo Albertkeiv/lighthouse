@@ -77,6 +77,9 @@ def test_buttons_labels(monkeypatch) -> None:
                 self.columns[name] = width
             return self.columns.get(name, 0)
 
+        def tag_configure(self, *args, **kwargs):
+            pass
+
     fake_tk = SimpleNamespace(
         PanedWindow=DummyPanedWindow,
         Frame=DummyWidget,
