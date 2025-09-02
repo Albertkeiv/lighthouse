@@ -9,7 +9,8 @@ from ..services.profile_service import ProfileService
 class ProfileController:
     """Controller orchestrating profile and tunnel operations."""
 
-    def __init__(self, hosts_file: Union[str, Path] = "/etc/hosts") -> None:
+    def __init__(self, hosts_file: Optional[Union[str, Path]] = None) -> None:
+        """Initialise the controller with an optional hosts file path."""
         self.service = ProfileService(hosts_file)
 
     @property

@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from sshtunnel import SSHTunnelForwarder
 
-from ..hosts import add_hosts_block, remove_hosts_block
+from ..hosts import add_hosts_block, remove_hosts_block, default_hosts_file
 from ..profiles import (
     PROFILES_FILE,
     _allocate_ip,
@@ -16,11 +16,25 @@ from ..profiles import (
 class ProfileService:
     """Service layer encapsulating profile and tunnel operations."""
 
-    def __init__(self, hosts_file: Union[str, Path] = "/etc/hosts") -> None:
-        self.hosts_file = Path(hosts_file)
+    def __init__(self, hosts_file: Optional[Union[str, Path]] = None) -> None:
+        """Create the service using a platform specific hosts file.
+
+        Parameters
+        ----------
+        hosts_file: str | Path | None
+            Optional explicit path to the hosts file.  When ``None`` the
+            system specific default from :func:`lighthouse_app.hosts.default_hosts_file`
+            is used.
+        """
+
+        if hosts_file is None:
+            self.hosts_file = default_hosts_file()
+        else:
+            self.hosts_file = Path(hosts_file)
         # Track running tunnels; keys are ``(profile_name, tunnel_name)`` tuples
         self.active_tunnels: Dict[Tuple[str, str], SSHTunnelForwarder] = {}
         self.logger = logging.getLogger(__name__)
+        self.logger.debug("Using hosts file %s", self.hosts_file)
 
     # ------------------------------------------------------------------
     # Profile management
