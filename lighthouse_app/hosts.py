@@ -1,7 +1,29 @@
+"""Utilities for updating the system hosts file.
+
+The module also exposes a helper for resolving the default hosts file path
+depending on the operating system.  This keeps OS specific logic in a single
+place and allows other parts of the application to simply call
+``default_hosts_file`` when they need the location of the hosts file.
+"""
+
 import logging
+import platform
 from pathlib import Path
 from typing import List, Union
 
+
+def default_hosts_file() -> Path:
+    """Return the platform specific hosts file path.
+
+    Windows stores the file in the system directory while Unix like systems
+    use ``/etc/hosts``.  The function intentionally falls back to the Unix
+    path for unknown systems so that behaviour is predictable.
+    """
+
+    system = platform.system().lower()
+    if system == "windows":
+        return Path(r"C:\Windows\System32\drivers\etc\hosts")
+    return Path("/etc/hosts")
 
 def add_hosts_block(
     profile_name: str,

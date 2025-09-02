@@ -12,7 +12,7 @@ from sshtunnel import SSHTunnelForwarder, DEFAULT_SSH_DIRECTORY
 
 _ORIGINAL_FORWARDER = SSHTunnelForwarder
 
-from .hosts import add_hosts_block, remove_hosts_block
+from .hosts import add_hosts_block, remove_hosts_block, default_hosts_file
 from .profiles import PROFILES_FILE, load_profiles as _load_profiles
 
 
@@ -760,8 +760,11 @@ class LighthouseApp:
         self.root = root
         self.cfg = cfg
         self.logger = logging.getLogger(__name__)
-        hosts_path = self.cfg.get("hosts", "file", fallback="/etc/hosts")
+        hosts_path = self.cfg.get(
+            "hosts", "file", fallback=str(default_hosts_file())
+        )
         self.hosts_file = Path(hosts_path)
+        self.logger.debug("Hosts file set to %s", self.hosts_file)
         self.profile_controller = ProfileController(self.hosts_file)
         self.key_controller = KeyController()
 
