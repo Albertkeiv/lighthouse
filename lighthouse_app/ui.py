@@ -288,19 +288,25 @@ class ProfileDialog(simpledialog.Dialog):
         self.key_combo["values"] = list(self.key_map.keys())
         self.key_combo.grid(row=1, column=1)
 
+        # IP settings grouped for clarity
+        self.ip_frame = tk.LabelFrame(master, text="IP Settings")
+        self.ip_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
+        self.ip_frame.columnconfigure(1, weight=1)
+        self.logger.debug("IP settings fields prepared in labelled frame")
+
         auto_default = True if self.profile is None else False
         self.auto_var = tk.BooleanVar(value=auto_default)
         auto_chk = tk.Checkbutton(
-            master,
+            self.ip_frame,
             text="Assign IP automatically",
             variable=self.auto_var,
             command=self._toggle_ip_entry,
         )
-        auto_chk.grid(row=2, column=0, columnspan=2, sticky="w")
+        auto_chk.grid(row=0, column=0, columnspan=2, sticky="w")
 
-        tk.Label(master, text="IP address:").grid(row=3, column=0, sticky="w")
-        self.ip_entry = tk.Entry(master)
-        self.ip_entry.grid(row=3, column=1)
+        tk.Label(self.ip_frame, text="IP address:").grid(row=1, column=0, sticky="w")
+        self.ip_entry = tk.Entry(self.ip_frame)
+        self.ip_entry.grid(row=1, column=1, sticky="ew")
         self.ip_entry.configure(state="disabled" if auto_default else "normal")
 
         if self.profile is not None:
