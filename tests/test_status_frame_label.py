@@ -1,64 +1,62 @@
-"""Ensure the info/log pane stretches with the window width."""
+"""Ensure status container uses expected label text."""
 
 import configparser
 from pathlib import Path
-import types
 import sys
+from types import SimpleNamespace
 
-# Make application importable
+# Allow importing the application
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lighthouse_app import ui
 
 
-def _expected_weight() -> int:
-    """Read expected column weight from configuration file."""
+def _expected_label() -> str:
+    """Read expected status label from configuration."""
     cfg = configparser.ConfigParser()
-    cfg.read(Path(__file__).with_name("info_pane_layout.ini"))
-    return cfg.getint("layout", "info_frame_column_weight")
+    cfg.read(Path(__file__).with_name("status_label.ini"))
+    return cfg["label"]["status"]
 
 
-def test_info_frame_expands_with_window(monkeypatch):
-    expected_weight = _expected_weight()
+def test_status_frame_has_label(monkeypatch) -> None:
+    """Status frame should be labelled according to configuration."""
+    expected = _expected_label()
 
     class DummyWidget:
-        """Minimal stand-in for Tk widgets used in tests."""
-        def __init__(self, *args, **kwargs):
-            self.column_weights = {}
-            self.row_weights = {}
-
-        def grid(self, *args, **kwargs):
+        """Minimal stand-in for Tk widgets."""
+        def __init__(self, *_, **__):
             pass
-
-        def pack(self, *args, **kwargs):
+        def grid(self, *_, **__):
             pass
-
-        def bind(self, *args, **kwargs):
+        def pack(self, *_, **__):
             pass
-
-        def rowconfigure(self, index, weight=0, **kwargs):
-            self.row_weights[index] = weight
-
-        def columnconfigure(self, index, weight=0, **kwargs):
-            self.column_weights[index] = weight
-
-        def insert(self, *args, **kwargs):
+        def bind(self, *_, **__):
             pass
-
+        def rowconfigure(self, *_, **__):
+            pass
+        def columnconfigure(self, *_, **__):
+            pass
+        def insert(self, *_, **__):
+            pass
         def after(self, delay, callback, *args):
             callback(*args)
-
         def update_idletasks(self):
             pass
+
+    class DummyLabelFrame(DummyWidget):
+        def __init__(self, *_, text="", **__):
+            super().__init__()
+            self._text = text
+        def cget(self, option):
+            if option == "text":
+                return self._text
 
     class DummyPanedWindow(DummyWidget):
         def __init__(self, root, **kwargs):
             super().__init__(root, **kwargs)
             self.children = []
-
         def add(self, child, **kwargs):
             self.children.append(child)
-
         def panes(self):
             return self.children
 
@@ -66,22 +64,19 @@ def test_info_frame_expands_with_window(monkeypatch):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.columns = {}
-
         def heading(self, *_, **__):
             pass
-
         def column(self, name, width=None, **_):
             if width is not None:
                 self.columns[name] = width
             return self.columns.get(name, 0)
-
         def tag_configure(self, *args, **kwargs):
             pass
 
-    fake_tk = types.SimpleNamespace(
+    fake_tk = SimpleNamespace(
         PanedWindow=DummyPanedWindow,
         Frame=DummyWidget,
-        LabelFrame=DummyWidget,
+        LabelFrame=DummyLabelFrame,
         Listbox=DummyWidget,
         Text=DummyWidget,
         Button=DummyWidget,
@@ -90,11 +85,13 @@ def test_info_frame_expands_with_window(monkeypatch):
         BOTH="both",
         GROOVE="groove",
     )
-    fake_ttk = types.SimpleNamespace(Treeview=DummyTreeview)
+    fake_ttk = SimpleNamespace(Treeview=DummyTreeview)
 
     monkeypatch.setattr(ui, "tk", fake_tk)
     monkeypatch.setattr(ui, "ttk", fake_ttk)
     monkeypatch.setattr(ui.LighthouseApp, "_setup_logging", lambda self: None)
+    monkeypatch.setattr(ui.LighthouseApp, "_load_profiles_into_list", lambda self: None)
+    monkeypatch.setattr(ui, "load_pane_layout", lambda file_path=ui.PANE_LAYOUT_FILE: [])
 
     cfg = configparser.ConfigParser()
     cfg["ui"] = {}
@@ -102,5 +99,4 @@ def test_info_frame_expands_with_window(monkeypatch):
 
     app = ui.LighthouseApp(root, cfg)
 
-    info_frame = app.top_pane.children[2]
-    assert info_frame.column_weights.get(0) == expected_weight
+    assert app.status_frame.cget("text") == expected

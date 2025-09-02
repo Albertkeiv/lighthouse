@@ -102,6 +102,7 @@ def _make_app(monkeypatch, cfg):
     fake_tk = SimpleNamespace(
         PanedWindow=_DummyPanedWindow,
         Frame=_DummyWidget,
+        LabelFrame=_DummyWidget,
         Text=_DummyText,
         Button=_DummyButton,
         END="end",

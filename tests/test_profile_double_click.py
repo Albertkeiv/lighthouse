@@ -79,6 +79,7 @@ def test_profile_list_double_click_triggers_edit(monkeypatch) -> None:
     fake_tk = SimpleNamespace(
         PanedWindow=DummyPanedWindow,
         Frame=DummyWidget,
+        LabelFrame=DummyWidget,
         Listbox=DummyWidget,
         Text=DummyWidget,
         Button=DummyButton,
