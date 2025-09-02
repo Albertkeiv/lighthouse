@@ -993,14 +993,9 @@ class LighthouseApp:
             ip_width = total_width - name_width
             self.profile_list.column("name", width=name_width)
             self.profile_list.column("ip", width=ip_width)
-            self.logger.info(
-                "Profile list resized to %s px: name=%s, ip=%s",
-                total_width,
-                name_width,
-                ip_width,
-            )
-        except Exception as exc:  # pragma: no cover - defensive
-            self.logger.exception("Failed to resize profile list: %s", exc)
+        except Exception:  # pragma: no cover - defensive
+            # Ignore resize errors to keep UI responsive
+            pass
 
     def _on_tunnel_list_configure(self, event: tk.Event) -> None:
         """Resize tunnel list columns to fit available width."""
@@ -1010,14 +1005,9 @@ class LighthouseApp:
             target_width = total_width - name_width
             self.tunnel_list.column("name", width=name_width)
             self.tunnel_list.column("target", width=target_width)
-            self.logger.info(
-                "Tunnel list resized to %s px: name=%s, target=%s",
-                total_width,
-                name_width,
-                target_width,
-            )
-        except Exception as exc:  # pragma: no cover - defensive
-            self.logger.exception("Failed to resize tunnel list: %s", exc)
+        except Exception:  # pragma: no cover - defensive
+            # Ignore resize errors to keep UI responsive
+            pass
 
     def _on_tunnel_select(self, event: tk.Event | None = None) -> None:
         """Display information about the selected tunnel and its status.
@@ -1559,14 +1549,14 @@ class LighthouseApp:
         messagebox.showinfo("Info", "Settings functionality not yet implemented.")
 
     def _on_pane_resize(self, event: tk.Event) -> None:
-        """Log and persist pane positions after user resizes the interface."""
+        """Persist pane positions after user resizes the interface."""
         try:
             pane_count = len(self.top_pane.panes())
             coords = [self.top_pane.sash_coord(i)[0] for i in range(pane_count - 1)]
-            self.logger.info("Pane resized; sash coordinates: %s", coords)
             save_pane_layout(coords)
-        except Exception as exc:
-            self.logger.exception("Failed to log pane resize: %s", exc)
+        except Exception:  # pragma: no cover - defensive
+            # Saving failures are ignored to avoid disrupting the app
+            pass
 
     def run(self) -> None:
         """Run the Tkinter main event loop."""
