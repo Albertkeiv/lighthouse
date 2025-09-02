@@ -277,16 +277,20 @@ class ProfileDialog(simpledialog.Dialog):
         self.name_entry.grid(row=0, column=0, sticky="ew")
         self.logger.debug("Profile name field prepared in labelled frame")
 
-        tk.Label(master, text="SSH key:").grid(row=1, column=0, sticky="w")
+        # SSH key selection grouped in a labelled frame
+        self.key_frame = tk.LabelFrame(master, text="SSH key")
+        self.key_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+        self.key_frame.columnconfigure(0, weight=1)
         # Prepare drop-down of available SSH keys
         self.key_var = tk.StringVar()
         self.key_combo = ttk.Combobox(
-            master, textvariable=self.key_var, state="readonly"
+            self.key_frame, textvariable=self.key_var, state="readonly"
         )
         # Map of key names to file system paths
         self.key_map = self._load_key_map()
         self.key_combo["values"] = list(self.key_map.keys())
-        self.key_combo.grid(row=1, column=1)
+        self.key_combo.grid(row=0, column=0, sticky="ew")
+        self.logger.debug("SSH key selection prepared in labelled frame")
 
         # IP settings grouped for clarity
         self.ip_frame = tk.LabelFrame(master, text="IP Settings")
