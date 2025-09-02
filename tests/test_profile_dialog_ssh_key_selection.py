@@ -40,6 +40,16 @@ def test_profile_dialog_uses_existing_keys(monkeypatch):
         def grid(self, *a, **k):
             pass
 
+    class DummyLabelFrame(DummyLabel):
+        def __init__(self, *a, text="", **k):
+            super().__init__(*a, **k)
+            self._text = text
+        def columnconfigure(self, *a, **k):
+            pass
+        def cget(self, option):
+            if option == "text":
+                return self._text
+
     class DummyCombobox:
         def __init__(self, master=None, textvariable=None, state=""):
             self.textvariable = textvariable
@@ -71,6 +81,7 @@ def test_profile_dialog_uses_existing_keys(monkeypatch):
 
     fake_tk = SimpleNamespace(
         Label=DummyLabel,
+        LabelFrame=DummyLabelFrame,
         Entry=DummyEntry,
         Checkbutton=DummyCheckbutton,
         BooleanVar=DummyBooleanVar,
