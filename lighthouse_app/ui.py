@@ -951,13 +951,23 @@ class LighthouseApp:
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to resize tunnel list: %s", exc)
 
-    def _on_tunnel_select(self, event: tk.Event) -> None:
-        """Handle tunnel selection event."""
-        selection = event.widget.selection()
+    def _on_tunnel_select(self, event: tk.Event | None = None) -> None:
+        """Display information about the selected tunnel and its status.
+
+        Parameters
+        ----------
+        event: tk.Event | None
+            Event from Tkinter. When ``None`` the current selection in
+            ``self.tunnel_list`` is used, allowing other handlers to refresh
+            the status pane without crafting an event object.
+        """
+        widget = event.widget if event else self.tunnel_list
+        selection = widget.selection()
         if not selection:
+            self.logger.debug("Tunnel select event with no selection")
             return
         item_id = selection[0]
-        values = event.widget.item(item_id, "values")
+        values = widget.item(item_id, "values")
         tunnel_name = values[0] if values else ""
         if len(values) >= 2:
             self.logger.info("Tunnel selected: %s -> %s", values[0], values[1])
@@ -980,22 +990,24 @@ class LighthouseApp:
                     None,
                 )
             if profile and tunnel:
-                cmd = (
-                    f"ssh -i {profile.get('ssh_key', '')} -p {tunnel.get('ssh_port')} "
-                    f"-L {tunnel.get('local_port')}:{tunnel.get('remote_host')}:"
-                    f"{tunnel.get('remote_port')} "
-                    f"{tunnel.get('username')}@{tunnel.get('ssh_host')}"
-                )
                 dns = ", ".join(tunnel.get("dns_names", []))
-                info_lines = [f"Tunnel: {tunnel_name}", f"Command: {cmd}"]
+                key = (profile_name, tunnel_name)
+                forwarder = self.active_tunnels.get(key)
+                status = (
+                    "running"
+                    if forwarder and getattr(forwarder, "is_active", False)
+                    else "stopped"
+                )
+                info_lines = [f"Tunnel: {tunnel_name}", f"Status: {status}"]
                 if dns:
                     info_lines.append(f"DNS: {dns}")
                 self.status_text.delete("1.0", tk.END)
                 self.status_text.insert(tk.END, "\n".join(info_lines))
                 self.logger.info(
-                    "Displayed tunnel info for '%s' in profile '%s'",
+                    "Displayed tunnel info for '%s' in profile '%s' with status '%s'",
                     tunnel_name,
                     profile_name,
+                    status,
                 )
             else:
                 self.status_text.delete("1.0", tk.END)
@@ -1382,6 +1394,8 @@ class LighthouseApp:
             self.logger.info(
                 "Started tunnel '%s' for profile '%s'", tunnel_name, profile_name
             )
+            # Refresh status pane to show running state
+            self._on_tunnel_select()
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to start tunnel: %s", exc)
             messagebox.showerror("Error", str(exc))
@@ -1421,6 +1435,8 @@ class LighthouseApp:
             self.logger.info(
                 "Stopped tunnel '%s' for profile '%s'", tunnel_name, profile_name
             )
+            # Refresh status pane to show stopped state
+            self._on_tunnel_select()
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to stop tunnel: %s", exc)
             messagebox.showerror("Error", str(exc))
