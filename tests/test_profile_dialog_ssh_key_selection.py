@@ -98,9 +98,9 @@ def test_profile_dialog_uses_existing_keys(monkeypatch):
     ui.ProfileDialog.__bases__ = (DummyDialogBase,)
     monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
     monkeypatch.setattr(
-        ui,
-        "load_ssh_keys",
-        lambda: [{"name": key_name, "path": key_path}],
+        ui.KeyController,
+        "load_keys",
+        lambda self: [{"name": key_name, "path": key_path}],
     )
 
     dialog = ui.ProfileDialog(None, [])

@@ -38,7 +38,7 @@ def test_new_profile_skips_success_popup(monkeypatch) -> None:
     monkeypatch.setattr(ui, "tk", SimpleNamespace(END="end"))
 
     # Patch dialogs and profile creation
-    monkeypatch.setattr(ui, "load_profiles", lambda: [])
+    monkeypatch.setattr(app.profile_controller, "load_profiles", lambda: [])
     class DummyDialog:
         def __init__(self, *_, **__):
             self.result = (
@@ -49,7 +49,7 @@ def test_new_profile_skips_success_popup(monkeypatch) -> None:
     monkeypatch.setattr(ui, "ProfileDialog", DummyDialog)
     def fake_create(name, key_path, ip):
         return {"name": name, "ip": cfg["expected"]["first_ip"]}
-    monkeypatch.setattr(ui, "create_profile", fake_create)
+    monkeypatch.setattr(app.profile_controller, "create_profile", fake_create)
 
     called = {}
     def fake_showinfo(*args, **kwargs):
@@ -86,7 +86,7 @@ def test_edit_profile_skips_success_popup(monkeypatch) -> None:
     app.profile_list = DummyTreeview()
 
     monkeypatch.setattr(
-        ui,
+        app.profile_controller,
         "load_profiles",
         lambda: [{"name": cfg["profile1"]["name"], "ip": cfg["expected"]["first_ip"]}],
     )
@@ -100,7 +100,7 @@ def test_edit_profile_skips_success_popup(monkeypatch) -> None:
     monkeypatch.setattr(ui, "ProfileDialog", DummyDialog)
     def fake_update(orig, new, key_path, ip):
         return {"name": new, "ip": cfg["expected"]["updated_ip"]}
-    monkeypatch.setattr(ui, "update_profile", fake_update)
+    monkeypatch.setattr(app.profile_controller, "update_profile", fake_update)
 
     called = {}
     monkeypatch.setattr(ui.messagebox, "showinfo", lambda *a, **k: called.setdefault("showinfo", True))
@@ -140,7 +140,7 @@ def test_delete_profile_skips_popups(monkeypatch) -> None:
     monkeypatch.setattr(ui.messagebox, "showinfo", lambda *a, **k: called.setdefault("showinfo", True))
     monkeypatch.setattr(ui.messagebox, "showwarning", lambda *a, **k: called.setdefault("showwarning", True))
     monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
-    monkeypatch.setattr(ui, "delete_profile", lambda name: True)
+    monkeypatch.setattr(app.profile_controller, "delete_profile", lambda name: True)
 
     app._on_delete_profile()
 

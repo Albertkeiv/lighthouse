@@ -29,8 +29,8 @@ def test_duplicate_profile_name_prevents_creation() -> None:
          patch.object(LighthouseApp, "_build_ui", lambda self: None):
         app = LighthouseApp(root, cfg)
 
-    with patch("lighthouse_app.ui.load_profiles", return_value=[{"name": existing_name}]) as mock_load, \
-         patch("lighthouse_app.ui.create_profile") as mock_create, \
+    with patch.object(app.profile_controller, "load_profiles", return_value=[{"name": existing_name}]) as mock_load, \
+         patch.object(app.profile_controller, "create_profile") as mock_create, \
          patch("lighthouse_app.ui.messagebox.showerror") as mock_error:
 
         def dummy_dialog(parent, profiles):

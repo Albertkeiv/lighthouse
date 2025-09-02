@@ -126,21 +126,8 @@ def _safe_get_keys(logger=None, host_pkey_directories=None, allow_agent=False):
 SSHTunnelForwarder.read_private_key_file = staticmethod(_safe_read_private_key_file)
 SSHTunnelForwarder.get_keys = staticmethod(_safe_get_keys)
 
-from .profiles import (
-    create_profile,
-    load_profiles,
-    delete_profile,
-    update_profile,
-    add_tunnel,
-    update_tunnel,
-    delete_tunnel,
-)
-from .ssh_keys import (
-    create_key as create_ssh_key,
-    load_keys as load_ssh_keys,
-    delete_key as delete_ssh_key,
-    update_key as update_ssh_key,
-)
+from .controllers.profile_controller import ProfileController
+from .controllers.key_controller import KeyController
 
 PANE_LAYOUT_FILE = "pane_layout.ini"
 
@@ -236,7 +223,7 @@ class ProfileDialog(simpledialog.Dialog):
         """Return mapping of SSH key names to their paths."""
         logger = logging.getLogger(__name__)
         try:
-            keys = load_ssh_keys()
+            keys = KeyController().load_keys()
         except Exception as exc:  # pragma: no cover - defensive
             logger.exception("Failed to load SSH keys: %s", exc)
             return {}
@@ -596,8 +583,9 @@ class TunnelDialog(simpledialog.Dialog):
 class SSHKeyManager:
     """Window for managing SSH keys."""
 
-    def __init__(self, parent: tk.Tk) -> None:
+    def __init__(self, parent: tk.Tk, key_controller: KeyController) -> None:
         self.parent = parent
+        self.key_controller = key_controller
         self.logger = logging.getLogger(__name__)
         self.top = tk.Toplevel(parent)
         self.top.title("SSH Keys")
@@ -626,7 +614,7 @@ class SSHKeyManager:
 
     def _load_keys(self) -> None:
         try:
-            keys = load_ssh_keys()
+            keys = self.key_controller.load_keys()
             for key in keys:
                 self.key_table.insert(
                     "",
@@ -639,7 +627,7 @@ class SSHKeyManager:
     def _on_add(self) -> None:
         self.logger.info("SSH key addition requested")
         try:
-            keys = load_ssh_keys()
+            keys = self.key_controller.load_keys()
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to load SSH keys for dialog: %s", exc)
             messagebox.showerror("Error", "Failed to load SSH keys")
@@ -650,7 +638,7 @@ class SSHKeyManager:
             return
         name, path, desc = dialog.result
         try:
-            key = create_ssh_key(name, path, desc)
+            key = self.key_controller.create_key(name, path, desc)
             self.key_table.insert(
                 "",
                 tk.END,
@@ -674,7 +662,7 @@ class SSHKeyManager:
         item = self.key_table.item(item_id)
         name = item["values"][0]
         try:
-            keys = load_ssh_keys()
+            keys = self.key_controller.load_keys()
             key = next((k for k in keys if k.get("name") == name), None)
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to load SSH keys for edit: %s", exc)
@@ -690,7 +678,7 @@ class SSHKeyManager:
             return
         new_name, path, desc = dialog.result
         try:
-            updated = update_ssh_key(name, new_name, path, desc)
+            updated = self.key_controller.update_key(name, new_name, path, desc)
             self.key_table.item(
                 item_id,
                 values=(updated["name"], updated.get("description", "")),
@@ -720,7 +708,7 @@ class SSHKeyManager:
             self.logger.info("SSH key deletion cancelled by user")
             return
         try:
-            removed = delete_ssh_key(name)
+            removed = self.key_controller.delete_key(name)
             if removed:
                 self.key_table.delete(item_id)
                 messagebox.showinfo("Deleted", f"SSH key '{name}' deleted")
@@ -745,10 +733,10 @@ class LighthouseApp:
         self.root = root
         self.cfg = cfg
         self.logger = logging.getLogger(__name__)
-        # Track active SSH tunnels; keys are (profile_name, tunnel_name)
-        self.active_tunnels: Dict[tuple, SSHTunnelForwarder] = {}
         hosts_path = self.cfg.get("hosts", "file", fallback="/etc/hosts")
         self.hosts_file = Path(hosts_path)
+        self.profile_controller = ProfileController(self.hosts_file)
+        self.key_controller = KeyController()
         self._setup_logging()
         self._build_ui()
 
@@ -1005,7 +993,7 @@ class LighthouseApp:
                 if profile_sel
                 else ""
             )
-            profiles = load_profiles()
+            profiles = self.profile_controller.load_profiles()
             profile = next((p for p in profiles if p.get("name") == profile_name), None)
             tunnel = None
             if profile:
@@ -1016,7 +1004,7 @@ class LighthouseApp:
             if profile and tunnel:
                 dns = ", ".join(tunnel.get("dns_names", []))
                 key = (profile_name, tunnel_name)
-                forwarder = self.active_tunnels.get(key)
+                forwarder = self.profile_controller.active_tunnels.get(key)
                 status = (
                     "running"
                     if forwarder and getattr(forwarder, "is_active", False)
@@ -1054,7 +1042,7 @@ class LighthouseApp:
         # Clear existing rows before loading new ones
         self.tunnel_list.delete(*self.tunnel_list.get_children())
         try:
-            profiles = load_profiles()
+            profiles = self.profile_controller.load_profiles()
             profile = next((p for p in profiles if p.get("name") == profile_name), None)
             tunnels = profile.get("tunnels", []) if profile else []
             for tunnel in tunnels:
@@ -1073,7 +1061,7 @@ class LighthouseApp:
     def _load_profiles_into_list(self) -> None:
         """Populate the profiles table from stored profiles."""
         try:
-            profiles = load_profiles()
+            profiles = self.profile_controller.load_profiles()
             for profile in profiles:
                 self.profile_list.insert(
                     "",
@@ -1091,7 +1079,7 @@ class LighthouseApp:
             # Determine which profiles currently have active tunnels
             active_profiles = {
                 name
-                for (name, _tunnel), fwd in self.active_tunnels.items()
+                for (name, _tunnel), fwd in self.profile_controller.active_tunnels.items()
                 if getattr(fwd, "is_active", False)
             }
             # Highlight profiles
@@ -1113,7 +1101,7 @@ class LighthouseApp:
             for item in self.tunnel_list.get_children():
                 values = self.tunnel_list.item(item, "values")
                 tunnel_name = values[0] if values else ""
-                forwarder = self.active_tunnels.get((current_profile, tunnel_name))
+                forwarder = self.profile_controller.active_tunnels.get((current_profile, tunnel_name))
                 if forwarder and getattr(forwarder, "is_active", False):
                     self.tunnel_list.item(item, tags=("active",))
                 else:
@@ -1126,7 +1114,7 @@ class LighthouseApp:
         """Triggered when the 'New Profile' button is pressed."""
         self.logger.info("New profile creation requested")
         try:
-            profiles = load_profiles()
+            profiles = self.profile_controller.load_profiles()
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to load profiles for dialog: %s", exc)
             messagebox.showerror("Error", "Failed to load profiles")
@@ -1138,7 +1126,7 @@ class LighthouseApp:
             return
         name, key_path, ip = dialog.result
         try:
-            profile = create_profile(name, key_path, ip)
+            profile = self.profile_controller.create_profile(name, key_path, ip)
             self.profile_list.insert(
                 "",
                 tk.END,
@@ -1161,7 +1149,7 @@ class LighthouseApp:
         values = self.profile_list.item(item_id, "values")
         name = values[0]
         try:
-            profiles = load_profiles()
+            profiles = self.profile_controller.load_profiles()
             profile = next((p for p in profiles if p.get("name") == name), None)
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to load profiles for edit: %s", exc)
@@ -1177,7 +1165,7 @@ class LighthouseApp:
             return
         new_name, key_path, ip = dialog.result
         try:
-            updated = update_profile(name, new_name, key_path, ip)
+            updated = self.profile_controller.update_profile(name, new_name, key_path, ip)
             self.profile_list.item(
                 item_id, values=(updated["name"], updated["ip"])
             )
@@ -1201,7 +1189,7 @@ class LighthouseApp:
             self.logger.info("Profile deletion cancelled by user")
             return
         try:
-            removed = delete_profile(name)
+            removed = self.profile_controller.delete_profile(name)
             if removed:
                 self.profile_list.delete(item_id)
                 self.logger.info("Profile '%s' deleted", name)
@@ -1225,7 +1213,7 @@ class LighthouseApp:
         values = self.profile_list.item(item_id, "values")
         profile_name = values[0]
         try:
-            profiles = load_profiles()
+            profiles = self.profile_controller.load_profiles()
             profile = next((p for p in profiles if p.get("name") == profile_name), None)
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to load profiles for tunnel dialog: %s", exc)
@@ -1247,7 +1235,7 @@ class LighthouseApp:
             dns_names,
         ) = dialog.result
         try:
-            tunnel = add_tunnel(
+            tunnel = self.profile_controller.add_tunnel(
                 profile_name,
                 name,
                 ssh_host,
@@ -1291,7 +1279,7 @@ class LighthouseApp:
         item_id = tunnel_sel[0]
         tunnel_name = self.tunnel_list.item(item_id, "values")[0]
         try:
-            profiles = load_profiles()
+            profiles = self.profile_controller.load_profiles()
             profile = next((p for p in profiles if p.get("name") == profile_name), None)
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to load profiles for tunnel edit: %s", exc)
@@ -1330,7 +1318,7 @@ class LighthouseApp:
             dns_names,
         ) = dialog.result
         try:
-            update_tunnel(
+            self.profile_controller.update_tunnel(
                 profile_name,
                 tunnel_name,
                 new_name,
@@ -1378,7 +1366,7 @@ class LighthouseApp:
             self.logger.info("Tunnel deletion cancelled by user")
             return
         try:
-            removed = delete_tunnel(profile_name, tunnel_name)
+            removed = self.profile_controller.delete_tunnel(profile_name, tunnel_name)
             if removed:
                 self.tunnel_list.delete(item_id)
                 self.logger.info(
@@ -1415,9 +1403,7 @@ class LighthouseApp:
             return
         profile_name = self.profile_list.item(profile_sel[0], "values")[0]
         tunnel_name = self.tunnel_list.item(tunnel_sel[0], "values")[0]
-        key = (profile_name, tunnel_name)
-        forwarder = self.active_tunnels.get(key)
-        if forwarder and forwarder.is_active:
+        if self.profile_controller.is_tunnel_active(profile_name, tunnel_name):
             messagebox.showwarning(
                 "Running", f"Tunnel '{tunnel_name}' is already running.",
             )
@@ -1426,55 +1412,13 @@ class LighthouseApp:
             )
             return
         try:
-            profiles = load_profiles()
-            profile = next((p for p in profiles if p.get("name") == profile_name), None)
-            tunnel = None
-            if profile:
-                tunnel = next(
-                    (t for t in profile.get("tunnels", []) if t.get("name") == tunnel_name),
-                    None,
-                )
-            if not profile or not tunnel:
-                raise ValueError(
-                    f"Profile '{profile_name}' or tunnel '{tunnel_name}' not found"
-                )
-            bind_ip = profile.get("ip")
-            if not bind_ip:
-                raise ValueError(f"Profile '{profile_name}' has no IP address")
-            forwarder = SSHTunnelForwarder(
-                ssh_address_or_host=(tunnel.get("ssh_host"), int(tunnel.get("ssh_port"))),
-                ssh_username=tunnel.get("username"),
-                ssh_pkey=profile.get("ssh_key"),
-                # Accept any server fingerprint by not providing host key
-                ssh_host_key=None,
-                host_pkey_directories=[],
-                allow_agent=False,
-                ssh_config_file=None,
-                # Bind the local side to the profile's dedicated IP
-                local_bind_address=(bind_ip, int(tunnel.get("local_port"))),
-                remote_bind_address=(tunnel.get("remote_host"), int(tunnel.get("remote_port"))),
-            )
-            forwarder.start()
-            self.active_tunnels[key] = forwarder
-            try:
-                add_hosts_block(
-                    profile_name,
-                    bind_ip,
-                    tunnel.get("dns_names", []),
-                    self.hosts_file,
-                    self.logger,
-                )
-            except Exception:
-                self.logger.exception(
-                    "Failed to update hosts file for profile '%s'", profile_name
-                )
+            self.profile_controller.start_tunnel(profile_name, tunnel_name)
             self.logger.info(
                 "Started tunnel '%s' for profile '%s'", tunnel_name, profile_name
             )
             self._append_log(
                 f"Started tunnel '{tunnel_name}' for profile '{profile_name}'"
             )
-            # Refresh status pane to show running state
             self._on_tunnel_select()
             self._update_highlights()
         except Exception as exc:  # pragma: no cover - defensive
@@ -1500,9 +1444,7 @@ class LighthouseApp:
             return
         profile_name = self.profile_list.item(profile_sel[0], "values")[0]
         tunnel_name = self.tunnel_list.item(tunnel_sel[0], "values")[0]
-        key = (profile_name, tunnel_name)
-        forwarder = self.active_tunnels.get(key)
-        if not forwarder or not forwarder.is_active:
+        if not self.profile_controller.is_tunnel_active(profile_name, tunnel_name):
             messagebox.showwarning(
                 "Not running", f"Tunnel '{tunnel_name}' is not running.",
             )
@@ -1511,21 +1453,13 @@ class LighthouseApp:
             )
             return
         try:
-            forwarder.stop()
-            del self.active_tunnels[key]
-            try:
-                remove_hosts_block(profile_name, self.hosts_file, self.logger)
-            except Exception:
-                self.logger.exception(
-                    "Failed to clean hosts file for profile '%s'", profile_name
-                )
+            self.profile_controller.stop_tunnel(profile_name, tunnel_name)
             self.logger.info(
                 "Stopped tunnel '%s' for profile '%s'", tunnel_name, profile_name
             )
             self._append_log(
                 f"Stopped tunnel '{tunnel_name}' for profile '{profile_name}'"
             )
-            # Refresh status pane to show stopped state
             self._on_tunnel_select()
             self._update_highlights()
         except Exception as exc:  # pragma: no cover - defensive
@@ -1536,7 +1470,7 @@ class LighthouseApp:
         """Triggered when the 'Manage SSH Key' button is pressed."""
         self.logger.info("SSH key management requested")
         try:
-            SSHKeyManager(self.root)
+            SSHKeyManager(self.root, self.key_controller)
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to open SSH key manager: %s", exc)
             messagebox.showerror("Error", str(exc))

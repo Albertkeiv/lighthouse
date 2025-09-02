@@ -117,7 +117,7 @@ def test_start_tunnel_appends_log(monkeypatch) -> None:
     app._update_highlights = lambda *a, **k: None
 
     app.log_text = DummyLogText()
-    app.active_tunnels = {}
+    app.profile_controller.active_tunnels = {}
     app._on_start_tunnel()
 
     expected = f"Started tunnel '{tunnel_name}' for profile '{profile_name}'"
@@ -162,7 +162,7 @@ def test_stop_tunnel_appends_log(monkeypatch) -> None:
         def is_active(self):
             return self._active
 
-    app.active_tunnels = {(profile_name, tunnel_name): DummyForwarder()}
+    app.profile_controller.active_tunnels = {(profile_name, tunnel_name): DummyForwarder()}
     monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
     monkeypatch.setattr(ui.messagebox, "showwarning", lambda *a, **k: None)
     app._on_tunnel_select = lambda *a, **k: None

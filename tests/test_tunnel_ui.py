@@ -73,7 +73,8 @@ def test_new_tunnel_skips_success_popup(monkeypatch) -> None:
         assert username == cfg["tunnel"]["username"]
         assert ssh_port == int(cfg["tunnel"]["ssh_port"])
         return {"name": cfg["tunnel"]["name"]}
-    monkeypatch.setattr(ui, "add_tunnel", _add_tunnel)
+    app = ui.LighthouseApp(root, cfg)
+    monkeypatch.setattr(app.profile_controller, "add_tunnel", _add_tunnel)
 
     called = {}
     monkeypatch.setattr(ui.messagebox, "showinfo", lambda *a, **k: called.setdefault("showinfo", True))
@@ -178,7 +179,7 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
         assert username == cfg["updated_tunnel"]["username"]
         assert ssh_port == int(cfg["updated_tunnel"]["ssh_port"])
         return None
-    monkeypatch.setattr(ui, "update_tunnel", _update_tunnel)
+    monkeypatch.setattr(app.profile_controller, "update_tunnel", _update_tunnel)
 
     called = {}
     monkeypatch.setattr(ui.messagebox, "showinfo", lambda *a, **k: called.setdefault("showinfo", True))
@@ -216,7 +217,7 @@ def test_delete_tunnel_skips_popups(monkeypatch) -> None:
     app.tunnel_list = DummyTreeview()
 
     monkeypatch.setattr(ui.messagebox, "askyesno", lambda *a, **k: True)
-    monkeypatch.setattr(ui, "delete_tunnel", lambda *a, **k: True)
+    monkeypatch.setattr(app.profile_controller, "delete_tunnel", lambda *a, **k: True)
 
     called = {}
     monkeypatch.setattr(ui.messagebox, "showinfo", lambda *a, **k: called.setdefault("showinfo", True))

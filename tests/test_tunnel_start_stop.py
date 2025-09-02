@@ -102,7 +102,7 @@ def test_start_tunnel_invokes_forwarder(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
     monkeypatch.setattr(ui.messagebox, "showwarning", lambda *a, **k: None)
 
-    app.active_tunnels = {}
+    app.profile_controller.active_tunnels = {}
     app._on_start_tunnel()
 
     expected_kwargs = {
@@ -132,7 +132,7 @@ def test_start_tunnel_invokes_forwarder(monkeypatch, tmp_path) -> None:
     )
 
     assert called["kwargs"] == expected_kwargs
-    assert (profile_name, tunnel_name) in app.active_tunnels
+    assert (profile_name, tunnel_name) in app.profile_controller.active_tunnels
     assert hosts_file.read_text() == block_text
 
 
@@ -190,7 +190,7 @@ def test_stop_tunnel_stops_forwarder(monkeypatch, tmp_path) -> None:
             return self._active
 
     fwd = DummyForwarder()
-    app.active_tunnels = {(profile_name, tunnel_name): fwd}
+    app.profile_controller.active_tunnels = {(profile_name, tunnel_name): fwd}
 
     monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
     monkeypatch.setattr(ui.messagebox, "showwarning", lambda *a, **k: None)
@@ -198,6 +198,6 @@ def test_stop_tunnel_stops_forwarder(monkeypatch, tmp_path) -> None:
     app._on_stop_tunnel()
 
     assert fwd.stopped is True
-    assert (profile_name, tunnel_name) not in app.active_tunnels
+    assert (profile_name, tunnel_name) not in app.profile_controller.active_tunnels
     assert hosts_file.read_text() == ""
 

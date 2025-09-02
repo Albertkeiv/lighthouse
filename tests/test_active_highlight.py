@@ -154,7 +154,7 @@ def test_active_items_highlight(monkeypatch) -> None:
             ],
         }
     ]
-    monkeypatch.setattr(ui, "load_profiles", lambda: profiles)
+    monkeypatch.setattr(app.profile_controller, "load_profiles", lambda: profiles)
     monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
     monkeypatch.setattr(ui.messagebox, "showwarning", lambda *a, **k: None)
 
@@ -172,9 +172,10 @@ def test_active_items_highlight(monkeypatch) -> None:
         def is_active(self):
             return self.started
 
-    monkeypatch.setattr(ui, "SSHTunnelForwarder", DummyForwarder)
+    import lighthouse_app.services.profile_service as ps
+    monkeypatch.setattr(ps, "SSHTunnelForwarder", DummyForwarder)
 
-    app.active_tunnels = {}
+    app.profile_controller.active_tunnels = {}
     app._on_start_tunnel()
     assert "active" in app.profile_list._items["item0"]["tags"]
     assert "active" in app.tunnel_list._items["item0"]["tags"]
