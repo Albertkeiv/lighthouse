@@ -121,9 +121,19 @@ class ProfileController:
         profile_name: str,
         tunnel_name: str,
         file_path: Union[str, Path] = PROFILES_FILE,
+        profiles: Optional[List[Dict[str, str]]] = None,
+        forwarder_cls: type[SSHTunnelForwarder] = SSHTunnelForwarder,
     ) -> None:
-        profiles = self.load_profiles()
-        self.service.start_tunnel(profile_name, tunnel_name, file_path, profiles)
+        """Start the given tunnel, optionally using preloaded profiles."""
+        if profiles is None:
+            profiles = self.load_profiles(file_path)
+        self.service.start_tunnel(
+            profile_name,
+            tunnel_name,
+            file_path,
+            profiles,
+            forwarder_cls,
+        )
 
     def stop_tunnel(self, profile_name: str, tunnel_name: str) -> None:
         self.service.stop_tunnel(profile_name, tunnel_name)

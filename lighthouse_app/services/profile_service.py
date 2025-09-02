@@ -229,6 +229,7 @@ class ProfileService:
         tunnel_name: str,
         file_path: Union[str, Path] = PROFILES_FILE,
         profiles: Optional[List[Dict[str, str]]] = None,
+        forwarder_cls: type[SSHTunnelForwarder] = SSHTunnelForwarder,
     ) -> None:
         key = (profile_name, tunnel_name)
         forwarder = self.active_tunnels.get(key)
@@ -250,7 +251,7 @@ class ProfileService:
         bind_ip = profile.get("ip")
         if not bind_ip:
             raise ValueError(f"Profile '{profile_name}' has no IP address")
-        forwarder = SSHTunnelForwarder(
+        forwarder = forwarder_cls(
             ssh_address_or_host=(tunnel.get("ssh_host"), int(tunnel.get("ssh_port"))),
             ssh_username=tunnel.get("username"),
             ssh_pkey=profile.get("ssh_key"),
