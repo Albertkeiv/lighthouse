@@ -94,6 +94,7 @@ def test_restore_pane_layout_after_panes(monkeypatch):
     fake_tk = types.SimpleNamespace(
         PanedWindow=DummyPanedWindow,
         Frame=DummyWidget,
+        LabelFrame=DummyWidget,
         Listbox=DummyWidget,
         Text=DummyWidget,
         Button=DummyWidget,

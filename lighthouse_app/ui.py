@@ -951,9 +951,14 @@ class LighthouseApp:
         # Calling this earlier results in errors because sashes do not yet exist.
         self.root.after(0, self._restore_pane_layout)
 
-        self.status_text = tk.Text(info_frame, height=10)
+        # Container showing current tunnel status
+        self.status_frame = tk.LabelFrame(info_frame, text="Status")
+        self.status_frame.grid(row=0, column=0, sticky="nsew")
+        self.status_frame.rowconfigure(0, weight=1)
+        self.status_frame.columnconfigure(0, weight=1)
+
+        self.status_text = tk.Text(self.status_frame, height=10)
         self.status_text.grid(row=0, column=0, sticky="nsew")
-        self.status_text.insert(tk.END, "<TUNNEL_INFO_AND_STATUS>")
 
         self.log_text = tk.Text(info_frame, height=8, state="disabled")
         self.log_text.grid(row=1, column=0, sticky="nsew")
@@ -1091,7 +1096,6 @@ class LighthouseApp:
                 )
             else:
                 self.status_text.delete("1.0", tk.END)
-                self.status_text.insert(tk.END, "<TUNNEL_INFO_AND_STATUS>")
                 self.logger.warning(
                     "Failed to display tunnel info: profile '%s' or tunnel '%s' not found",
                     profile_name,

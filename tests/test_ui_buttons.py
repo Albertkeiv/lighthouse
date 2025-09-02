@@ -83,6 +83,7 @@ def test_buttons_labels(monkeypatch) -> None:
     fake_tk = SimpleNamespace(
         PanedWindow=DummyPanedWindow,
         Frame=DummyWidget,
+        LabelFrame=DummyWidget,
         Listbox=DummyWidget,
         Text=DummyWidget,
         Button=DummyButton,
