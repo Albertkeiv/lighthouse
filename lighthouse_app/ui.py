@@ -11,6 +11,58 @@ import paramiko
 from sshtunnel import SSHTunnelForwarder, DEFAULT_SSH_DIRECTORY
 
 
+def _safe_read_private_key_file(
+    pkey_file: str,
+    pkey_password: Optional[str] = None,
+    key_type: Optional[type] = None,
+    logger: Optional[logging.Logger] = None,
+):
+    """Read private keys without relying on deprecated DSA support.
+
+    Paramiko 3.x removed the ``DSSKey`` class used for DSA keys.  The
+    upstream ``sshtunnel`` library still references it which raises an
+    :class:`AttributeError`.  This helper mirrors the original behaviour
+    but simply skips DSA handling when the class is missing.
+
+    Parameters
+    ----------
+    pkey_file: str
+        Path to the private key file.
+    pkey_password: str, optional
+        Password for decrypting the key if required.
+    key_type: type, optional
+        Explicit key class to try first.  When omitted, several common
+        types are attempted.
+    logger: logging.Logger, optional
+        Logger used for debug output.
+    """
+
+    if key_type:
+        key_types = (key_type,)
+    else:
+        key_types = [paramiko.RSAKey]
+        if hasattr(paramiko, "ECDSAKey"):
+            key_types.append(paramiko.ECDSAKey)
+        if hasattr(paramiko, "Ed25519Key"):
+            key_types.append(paramiko.Ed25519Key)
+
+    for pkey_cls in key_types:
+        try:
+            if logger:
+                logger.debug("Attempting to load %s using %s", pkey_file, pkey_cls.__name__)
+            return pkey_cls.from_private_key_file(pkey_file, password=pkey_password)
+        except paramiko.PasswordRequiredException:
+            if logger:
+                logger.error("Password is required for key %s", pkey_file)
+            break
+        except (paramiko.SSHException, OSError) as exc:
+            if logger:
+                logger.debug(
+                    "Failed loading %s as %s: %s", pkey_file, pkey_cls.__name__, exc
+                )
+    return None
+
+
 def _safe_get_keys(logger=None, host_pkey_directories=None, allow_agent=False):
     """Load available private keys while tolerating missing DSA support.
 
@@ -68,7 +120,8 @@ def _safe_get_keys(logger=None, host_pkey_directories=None, allow_agent=False):
     return keys
 
 
-# Replace original method with the safe version for module-wide use
+# Replace original methods with the safe versions for module-wide use
+SSHTunnelForwarder.read_private_key_file = staticmethod(_safe_read_private_key_file)
 SSHTunnelForwarder.get_keys = staticmethod(_safe_get_keys)
 
 from .profiles import (
