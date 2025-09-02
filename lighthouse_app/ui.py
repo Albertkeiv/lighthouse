@@ -373,6 +373,10 @@ class TunnelDialog(simpledialog.Dialog):
                 existing_dns = [self.tunnel.get("dns_name")]
             for dns in existing_dns:
                 self.dns_list.insert(tk.END, dns)
+        else:
+            # Fill SSH port with safe default for new tunnels
+            self.ssh_port_entry.insert(0, "22")
+            self.logger.info("Tunnel dialog: default SSH port 22 inserted")
 
         return self.name_entry
 
