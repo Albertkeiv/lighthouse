@@ -229,7 +229,10 @@ def save_pane_layout(coords: List[int], file_path: Union[str, Path] = PANE_LAYOU
 
 
 class ProfileDialog(simpledialog.Dialog):
-    """Dialog window for collecting or editing profile parameters."""
+    """Dialog window for collecting or editing profile parameters.
+
+    The dialog uses a fixed size so users cannot resize the window.
+    """
 
     def __init__(
         self,
@@ -268,6 +271,12 @@ class ProfileDialog(simpledialog.Dialog):
         places the descriptive text in the frame's border with the entry
         widget inside, making the label appear above the input field.
         """
+        # Disallow user resizing to preserve layout integrity
+        if hasattr(self, "resizable") and getattr(self, "tk", None):
+            self.resizable(False, False)
+            self.logger.debug("Profile dialog resize disabled")
+        else:  # pragma: no cover - defensive
+            self.logger.debug("Resize control not supported in this context")
 
         # Profile name container with border and caption above the entry
         self.name_frame = tk.LabelFrame(master, text="Profile name")
