@@ -1595,10 +1595,9 @@ def main() -> None:
 
 
 if __name__ == '__main__':
-    if __package__ in {None, ''}:
-        logging.error(
-            "This module must be executed as part of the lighthouse_app package.\n"
-            "Use 'python -m lighthouse_app.ui' instead."
-        )
-        raise SystemExit(1)
+    # When packaged with tools like PyInstaller the module may execute with
+    # ``__package__`` set to ``None``.  Previously this triggered an early
+    # exit which caused the frozen application to close immediately.  Running
+    # the entry point should be permitted regardless of how the module is
+    # invoked.
     main()
