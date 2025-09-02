@@ -12,8 +12,12 @@ from sshtunnel import SSHTunnelForwarder, DEFAULT_SSH_DIRECTORY
 
 _ORIGINAL_FORWARDER = SSHTunnelForwarder
 
-from .hosts import add_hosts_block, remove_hosts_block, default_hosts_file
-from .profiles import PROFILES_FILE, load_profiles as _load_profiles
+from lighthouse_app.hosts import (
+    add_hosts_block,
+    remove_hosts_block,
+    default_hosts_file,
+)
+from lighthouse_app.profiles import PROFILES_FILE, load_profiles as _load_profiles
 
 
 def load_profiles(file_path: Union[str, Path] = PROFILES_FILE) -> List[Dict[str, str]]:
