@@ -11,20 +11,28 @@
    python -m lighthouse_app.ui
    ```
 
-## Сборка в исполняемый файл для Windows
+## Сборка проекта с помощью PyInstaller
 
-Чтобы получить самостоятельный `.exe` файл, воспользуйтесь стандартным инструментом [PyInstaller](https://pyinstaller.org):
+[PyInstaller](https://pyinstaller.org) позволяет упаковать приложение в один
+исполняемый файл для Windows, Linux и macOS. Ниже приведён базовый процесс
+сборки.
 
 1. Установите PyInstaller:
    ```bash
    pip install pyinstaller
    ```
-2. В каталоге проекта выполните:
+2. В каталоге проекта выполните команду сборки:
    ```bash
    pyinstaller --onefile --windowed --name Lighthouse lighthouse_app/ui.py
    ```
-3. Готовый `Lighthouse.exe` появится в папке `dist`. Скопируйте рядом файл `config.ini` и при необходимости `pane_layout.ini`.
-4. Запустите `Lighthouse.exe` двойным щелчком или через командную строку.
+3. Готовый файл появится в каталоге `dist`:
+   - Windows — `Lighthouse.exe`
+   - Linux/macOS — `Lighthouse`
+4. Положите рядом с исполняемым файлом конфигурацию `config.ini` и, при
+   необходимости, `pane_layout.ini`. При желании их можно включить в сборку
+   опцией `--add-data "config.ini;."` (Windows) или `--add-data "config.ini:."`
+   (Linux/macOS).
+5. Запустите итоговый файл двойным щелчком либо из командной строки.
 
 ## Тестирование
 
