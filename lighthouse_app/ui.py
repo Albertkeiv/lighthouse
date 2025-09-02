@@ -10,6 +10,8 @@ from ipaddress import ip_address
 import paramiko
 from sshtunnel import SSHTunnelForwarder, DEFAULT_SSH_DIRECTORY
 
+from .hosts import add_hosts_block, remove_hosts_block
+
 
 def _safe_read_private_key_file(
     pkey_file: str,
@@ -745,6 +747,8 @@ class LighthouseApp:
         self.logger = logging.getLogger(__name__)
         # Track active SSH tunnels; keys are (profile_name, tunnel_name)
         self.active_tunnels: Dict[tuple, SSHTunnelForwarder] = {}
+        hosts_path = self.cfg.get("hosts", "file", fallback="/etc/hosts")
+        self.hosts_file = Path(hosts_path)
         self._setup_logging()
         self._build_ui()
 
@@ -1452,6 +1456,18 @@ class LighthouseApp:
             )
             forwarder.start()
             self.active_tunnels[key] = forwarder
+            try:
+                add_hosts_block(
+                    profile_name,
+                    bind_ip,
+                    tunnel.get("dns_names", []),
+                    self.hosts_file,
+                    self.logger,
+                )
+            except Exception:
+                self.logger.exception(
+                    "Failed to update hosts file for profile '%s'", profile_name
+                )
             self.logger.info(
                 "Started tunnel '%s' for profile '%s'", tunnel_name, profile_name
             )
@@ -1497,6 +1513,12 @@ class LighthouseApp:
         try:
             forwarder.stop()
             del self.active_tunnels[key]
+            try:
+                remove_hosts_block(profile_name, self.hosts_file, self.logger)
+            except Exception:
+                self.logger.exception(
+                    "Failed to clean hosts file for profile '%s'", profile_name
+                )
             self.logger.info(
                 "Stopped tunnel '%s' for profile '%s'", tunnel_name, profile_name
             )

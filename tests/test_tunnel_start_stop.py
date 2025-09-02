@@ -29,8 +29,9 @@ def _make_app(monkeypatch, cfg):
     return app
 
 
-def test_start_tunnel_invokes_forwarder(monkeypatch) -> None:
+def test_start_tunnel_invokes_forwarder(monkeypatch, tmp_path) -> None:
     cfg = _load_cfg()
+    cfg["hosts"]["file"] = str(tmp_path / cfg["hosts"]["file"])
     app = _make_app(monkeypatch, cfg)
 
     profile_name = cfg["profile"]["name"]
@@ -38,6 +39,8 @@ def test_start_tunnel_invokes_forwarder(monkeypatch) -> None:
     tunnel_name = tunnel_cfg["name"]
     ssh_key = Path(cfg["profile"]["ssh_dir"]) / cfg["profile"]["ssh_key_filename"]
     profile_ip = cfg["profile"]["ip"]
+    hosts_file = Path(cfg["hosts"]["file"])
+    hosts_file.write_text("")
 
     class DummyProfileList:
         def selection(self):
@@ -114,16 +117,47 @@ def test_start_tunnel_invokes_forwarder(monkeypatch) -> None:
         "remote_bind_address": (tunnel_cfg["remote_host"], int(tunnel_cfg["remote_port"])),
     }
 
+    dns_line = " ".join([
+        profile_ip,
+        *[
+            d.strip()
+            for d in tunnel_cfg["dns_names"].split(",")
+            if d.strip()
+        ],
+    ])
+    block_text = (
+        f"#### Managed by Lighthouse profile {profile_name} ####\n"
+        f"{dns_line}\n"
+        f"#### End block Lighthouse profile {profile_name} ####\n"
+    )
+
     assert called["kwargs"] == expected_kwargs
     assert (profile_name, tunnel_name) in app.active_tunnels
+    assert hosts_file.read_text() == block_text
 
 
-def test_stop_tunnel_stops_forwarder(monkeypatch) -> None:
+def test_stop_tunnel_stops_forwarder(monkeypatch, tmp_path) -> None:
     cfg = _load_cfg()
+    cfg["hosts"]["file"] = str(tmp_path / cfg["hosts"]["file"])
     app = _make_app(monkeypatch, cfg)
 
     profile_name = cfg["profile"]["name"]
     tunnel_name = cfg["tunnel"]["name"]
+    hosts_file = Path(cfg["hosts"]["file"])
+    dns_line = " ".join([
+        cfg["profile"]["ip"],
+        *[
+            d.strip()
+            for d in cfg["tunnel"]["dns_names"].split(",")
+            if d.strip()
+        ],
+    ])
+    block_text = (
+        f"#### Managed by Lighthouse profile {profile_name} ####\n"
+        f"{dns_line}\n"
+        f"#### End block Lighthouse profile {profile_name} ####\n"
+    )
+    hosts_file.write_text(block_text)
 
     class DummyProfileList:
         def selection(self):
@@ -165,4 +199,5 @@ def test_stop_tunnel_stops_forwarder(monkeypatch) -> None:
 
     assert fwd.stopped is True
     assert (profile_name, tunnel_name) not in app.active_tunnels
+    assert hosts_file.read_text() == ""
 
