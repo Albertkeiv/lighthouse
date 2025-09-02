@@ -11,68 +11,65 @@ import paramiko
 from sshtunnel import SSHTunnelForwarder, DEFAULT_SSH_DIRECTORY
 
 
-class SafeSSHTunnelForwarder(SSHTunnelForwarder):
-    """SSHTunnelForwarder with compatibility for Paramiko without DSSKey."""
+def _safe_get_keys(logger=None, host_pkey_directories=None, allow_agent=False):
+    """Load available private keys while tolerating missing DSA support.
 
-    @staticmethod
-    def get_keys(
-        logger=None, host_pkey_directories=None, allow_agent=False
-    ):
-        """Load available private keys without assuming DSA support.
+    Paramiko 3 removed the ``DSSKey`` class used for DSA keys.  The upstream
+    ``sshtunnel`` package still tries to import it which results in an
+    :class:`AttributeError`.  This function mirrors the original
+    implementation but skips the DSA handler when the class is absent.
 
-        Paramiko 4 removed the ``DSSKey`` class used for DSA keys.  The
-        upstream ``sshtunnel`` implementation unconditionally referenced
-        ``paramiko.DSSKey`` which now raises :class:`AttributeError`.  This
-        reimplementation checks for that attribute before including the DSA
-        handler, preventing the application from crashing on startup.
+    Parameters
+    ----------
+    logger: logging.Logger, optional
+        Logger used for debug information.
+    host_pkey_directories: list[str], optional
+        Directories searched for private key files.
+    allow_agent: bool
+        When ``True`` the SSH agent is queried for keys.
+    """
 
-        Parameters mirror the original method.
-        """
+    keys = (
+        SSHTunnelForwarder.get_agent_keys(logger=logger) if allow_agent else []
+    )
 
-        keys = (
-            SSHTunnelForwarder.get_agent_keys(logger=logger) if allow_agent else []
-        )
+    if host_pkey_directories is None:
+        host_pkey_directories = [DEFAULT_SSH_DIRECTORY]
 
-        if host_pkey_directories is None:
-            host_pkey_directories = [DEFAULT_SSH_DIRECTORY]
+    paramiko_key_types = {"rsa": paramiko.RSAKey}
+    if hasattr(paramiko, "ECDSAKey"):
+        paramiko_key_types["ecdsa"] = paramiko.ECDSAKey
+    if hasattr(paramiko, "Ed25519Key"):
+        paramiko_key_types["ed25519"] = paramiko.Ed25519Key
 
-        paramiko_key_types = {
-            "rsa": paramiko.RSAKey,
-            "ecdsa": paramiko.ECDSAKey,
-        }
-        if hasattr(paramiko, "DSSKey"):
-            paramiko_key_types["dsa"] = paramiko.DSSKey
-        if hasattr(paramiko, "Ed25519Key"):
-            paramiko_key_types["ed25519"] = paramiko.Ed25519Key
-
-        for directory in host_pkey_directories:
-            for keytype, key_cls in paramiko_key_types.items():
-                ssh_pkey_expanded = os.path.expanduser(
-                    os.path.join(directory, f"id_{keytype}")
-                )
-                try:
-                    if os.path.isfile(ssh_pkey_expanded):
-                        ssh_pkey = SSHTunnelForwarder.read_private_key_file(
-                            pkey_file=ssh_pkey_expanded,
-                            logger=logger,
-                            key_type=key_cls,
-                        )
-                        if ssh_pkey:
-                            keys.append(ssh_pkey)
-                except OSError as exc:  # pragma: no cover - defensive
-                    if logger:
-                        logger.warning(
-                            "Private key file %s check error: %s",
-                            ssh_pkey_expanded,
-                            exc,
-                        )
-        if logger:
-            logger.info("%d key(s) loaded", len(keys))
-        return keys
+    for directory in host_pkey_directories:
+        for keytype, key_cls in paramiko_key_types.items():
+            ssh_pkey_expanded = os.path.expanduser(
+                os.path.join(directory, f"id_{keytype}")
+            )
+            try:
+                if os.path.isfile(ssh_pkey_expanded):
+                    ssh_pkey = SSHTunnelForwarder.read_private_key_file(
+                        pkey_file=ssh_pkey_expanded,
+                        logger=logger,
+                        key_type=key_cls,
+                    )
+                    if ssh_pkey:
+                        keys.append(ssh_pkey)
+            except OSError as exc:  # pragma: no cover - defensive
+                if logger:
+                    logger.warning(
+                        "Private key file %s check error: %s",
+                        ssh_pkey_expanded,
+                        exc,
+                    )
+    if logger:
+        logger.info("%d key(s) loaded", len(keys))
+    return keys
 
 
-# Replace original forwarder with the safe version for module-wide use
-SSHTunnelForwarder = SafeSSHTunnelForwarder
+# Replace original method with the safe version for module-wide use
+SSHTunnelForwarder.get_keys = staticmethod(_safe_get_keys)
 
 from .profiles import (
     create_profile,
