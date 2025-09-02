@@ -759,6 +759,22 @@ class LighthouseApp:
             ]
         )
 
+    def _append_log(self, message: str) -> None:
+        """Append a message to the log text widget safely.
+
+        The log area is kept read-only by toggling the widget state
+        during writes. This method is a no-op if the widget is missing.
+        """
+        if not hasattr(self, "log_text"):
+            return
+        try:
+            self.log_text.configure(state="normal")
+            self.log_text.insert(tk.END, message + "\n")
+            self.log_text.configure(state="disabled")
+            self.log_text.see(tk.END)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to append log message: %s", exc)
+
     def _build_ui(self) -> None:
         """Create and arrange widgets using a resizable paned window."""
         # Configure grid for the main window. Only one row and column are
@@ -868,9 +884,9 @@ class LighthouseApp:
         self.status_text.grid(row=0, column=0, sticky="nsew")
         self.status_text.insert(tk.END, "<TUNNEL_INFO_AND_STATUS>")
 
-        self.log_text = tk.Text(info_frame, height=8)
+        self.log_text = tk.Text(info_frame, height=8, state="disabled")
         self.log_text.grid(row=1, column=0, sticky="nsew")
-        self.log_text.insert(tk.END, "<LOG>")
+        self._append_log("<LOG>")
         # Frame to hold bottom action buttons side by side
         button_frame = tk.Frame(info_frame)
         button_frame.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
@@ -1439,6 +1455,9 @@ class LighthouseApp:
             self.logger.info(
                 "Started tunnel '%s' for profile '%s'", tunnel_name, profile_name
             )
+            self._append_log(
+                f"Started tunnel '{tunnel_name}' for profile '{profile_name}'"
+            )
             # Refresh status pane to show running state
             self._on_tunnel_select()
             self._update_highlights()
@@ -1480,6 +1499,9 @@ class LighthouseApp:
             del self.active_tunnels[key]
             self.logger.info(
                 "Stopped tunnel '%s' for profile '%s'", tunnel_name, profile_name
+            )
+            self._append_log(
+                f"Stopped tunnel '{tunnel_name}' for profile '{profile_name}'"
             )
             # Refresh status pane to show stopped state
             self._on_tunnel_select()
