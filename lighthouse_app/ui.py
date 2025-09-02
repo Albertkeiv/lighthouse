@@ -862,7 +862,6 @@ class LighthouseApp:
             profile_frame, text="Delete Profile", command=self._on_delete_profile
         )
         delete_btn.pack(fill="x")
-        self._load_profiles_into_list()
 
         # Tunnels list
         tunnel_frame = tk.Frame(self.top_pane, bd=2, relief=tk.GROOVE)
@@ -884,6 +883,10 @@ class LighthouseApp:
         self.tunnel_list.bind("<Double-1>", self._on_tunnel_double_click)
         # Adjust column widths whenever the widget size changes
         self.tunnel_list.bind("<Configure>", self._on_tunnel_list_configure)
+
+        # Load profiles once widgets are ready so highlight updates succeed
+        self._load_profiles_into_list()
+
         new_tunnel_btn = tk.Button(
             tunnel_frame, text="New Tunnel", command=self._on_new_tunnel
         )
@@ -1144,14 +1147,20 @@ class LighthouseApp:
                 if profile_sel
                 else None
             )
-            for item in self.tunnel_list.get_children():
-                values = self.tunnel_list.item(item, "values")
-                tunnel_name = values[0] if values else ""
-                forwarder = self.profile_controller.active_tunnels.get((current_profile, tunnel_name))
-                if forwarder and getattr(forwarder, "is_active", False):
-                    self.tunnel_list.item(item, tags=("active",))
-                else:
-                    self.tunnel_list.item(item, tags=())
+            tunnel_widget = getattr(self, "tunnel_list", None)
+            if tunnel_widget is not None:
+                for item in tunnel_widget.get_children():
+                    values = tunnel_widget.item(item, "values")
+                    tunnel_name = values[0] if values else ""
+                    forwarder = self.profile_controller.active_tunnels.get(
+                        (current_profile, tunnel_name)
+                    )
+                    if forwarder and getattr(forwarder, "is_active", False):
+                        tunnel_widget.item(item, tags=("active",))
+                    else:
+                        tunnel_widget.item(item, tags=())
+            else:
+                self.logger.debug("Tunnel list widget not available; skipping tunnel highlight")
             self.logger.debug("Updated profile and tunnel highlights")
         except Exception as exc:  # pragma: no cover - defensive
             self.logger.exception("Failed to update highlights: %s", exc)
