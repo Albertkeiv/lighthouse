@@ -654,39 +654,58 @@ class TunnelDialog(simpledialog.Dialog):
             self.resizable(True, True)
             self.logger.debug("Tunnel dialog made resizable")
 
-        # Ensure all widgets are visible and establish a sensible minimum size
-        if getattr(self, "tk", None) and hasattr(self, "update_idletasks"):
-            self.update_idletasks()
-            if all(
-                hasattr(self, attr)
-                for attr in [
-                    "winfo_reqwidth",
-                    "winfo_reqheight",
-                    "winfo_width",
-                    "winfo_height",
-                ]
-            ):
-                req_w = self.winfo_reqwidth()
-                req_h = self.winfo_reqheight()
-                cur_w = self.winfo_width()
-                cur_h = self.winfo_height()
-                width = max(cur_w, req_w)
-                height = max(cur_h, req_h)
-                if hasattr(self, "geometry"):
-                    self.geometry(f"{width}x{height}")
-                if hasattr(self, "minsize"):
-                    self.minsize(req_w, req_h)
-                self.logger.debug(
-                    "Tunnel dialog geometry enforced to %dx%d with minimum %dx%d",
-                    width,
-                    height,
-                    req_w,
-                    req_h,
-                )
+        # Defer geometry enforcement until all widgets, including button box,
+        # are created.  ``simpledialog.Dialog`` adds buttons after ``body``
+        # returns, so using ``after`` ensures final dimensions account for
+        # them.  Fallback to immediate enforcement when ``after`` is
+        # unavailable (e.g., simplified test doubles).
+        if callable(getattr(self, "after", None)) and hasattr(getattr(self, "tk", None), "createcommand"):
+            self.after(0, self._enforce_geometry)
+        else:  # pragma: no cover - executed only by test stubs without functional ``after``
+            self._enforce_geometry()
 
         # Apply initial state to DNS widgets
         self._toggle_dns_widgets()
         return self.name_entry
+
+    def _enforce_geometry(self) -> None:
+        """Ensure all widgets are visible and set a sensible minimum size."""
+        if not (getattr(self, "tk", None) and hasattr(self, "update_idletasks")):
+            return
+
+        try:
+            self.update_idletasks()
+            if not all(
+                hasattr(self, attr)
+                for attr in (
+                    "winfo_reqwidth",
+                    "winfo_reqheight",
+                    "winfo_width",
+                    "winfo_height",
+                )
+            ):
+                return
+
+            req_w = self.winfo_reqwidth()
+            req_h = self.winfo_reqheight()
+            cur_w = self.winfo_width()
+            cur_h = self.winfo_height()
+            width = max(cur_w, req_w)
+            height = max(cur_h, req_h)
+            if hasattr(self, "geometry"):
+                self.geometry(f"{width}x{height}")
+            if hasattr(self, "minsize"):
+                self.minsize(req_w, req_h)
+            self.logger.debug(
+                "Tunnel dialog geometry enforced to %dx%d with minimum %dx%d",
+                width,
+                height,
+                req_w,
+                req_h,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            if hasattr(self.logger, "exception"):
+                self.logger.exception("Failed to enforce tunnel dialog geometry: %s", exc)
 
     def validate(self) -> bool:  # pragma: no cover - GUI validation
         name = self.name_entry.get().strip()
