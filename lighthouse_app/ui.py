@@ -654,26 +654,34 @@ class TunnelDialog(simpledialog.Dialog):
             self.resizable(True, True)
             self.logger.debug("Tunnel dialog made resizable")
 
-        if hasattr(self, "update_idletasks"):
-            self.update_idletasks()
-        extra_width = 80
-        current_w = self.winfo_width()
-        current_h = self.winfo_height()
-        new_w = current_w + extra_width
-        self.geometry(f"{new_w}x{current_h}")
-        self.logger.debug(
-            "Tunnel dialog widened by %d pixels to %dx%d", extra_width, new_w, current_h
-        )
-
-        # Prevent the dialog from shrinking below the space needed for widgets
+        # Ensure all widgets are visible and establish a sensible minimum size
         if getattr(self, "tk", None) and hasattr(self, "update_idletasks"):
             self.update_idletasks()
-            req_w = self.winfo_reqwidth()
-            req_h = self.winfo_reqheight()
-            if hasattr(self, "minsize"):
-                self.minsize(req_w, req_h)
+            if all(
+                hasattr(self, attr)
+                for attr in [
+                    "winfo_reqwidth",
+                    "winfo_reqheight",
+                    "winfo_width",
+                    "winfo_height",
+                ]
+            ):
+                req_w = self.winfo_reqwidth()
+                req_h = self.winfo_reqheight()
+                cur_w = self.winfo_width()
+                cur_h = self.winfo_height()
+                width = max(cur_w, req_w)
+                height = max(cur_h, req_h)
+                if hasattr(self, "geometry"):
+                    self.geometry(f"{width}x{height}")
+                if hasattr(self, "minsize"):
+                    self.minsize(req_w, req_h)
                 self.logger.debug(
-                    "Tunnel dialog minimum size set to %dx%d", req_w, req_h
+                    "Tunnel dialog geometry enforced to %dx%d with minimum %dx%d",
+                    width,
+                    height,
+                    req_w,
+                    req_h,
                 )
 
         # Apply initial state to DNS widgets
@@ -1187,7 +1195,8 @@ class LighthouseApp:
         )
         self.settings_btn.grid(row=0, column=1, sticky="ew")
 
-        # Ensure the main window is large enough to display all widgets
+        # Ensure the main window fits its widgets while allowing reduction to a
+        # configurable minimum size
         if hasattr(self.root, "update_idletasks"):
             self.root.update_idletasks()
             if all(
@@ -1198,18 +1207,20 @@ class LighthouseApp:
                 req_h = self.root.winfo_reqheight()
                 cur_w = self.root.winfo_width()
                 cur_h = self.root.winfo_height()
-                width = max(cur_w, req_w)
-                height = max(cur_h, req_h)
+                min_w = self.cfg.getint("ui", "min_width", fallback=200)
+                min_h = self.cfg.getint("ui", "min_height", fallback=200)
+                width = max(cur_w, req_w, min_w)
+                height = max(cur_h, req_h, min_h)
                 if hasattr(self.root, "geometry"):
                     self.root.geometry(f"{width}x{height}")
                 if hasattr(self.root, "minsize"):
-                    self.root.minsize(req_w, req_h)
+                    self.root.minsize(min_w, min_h)
                 self.logger.debug(
                     "Main window geometry enforced to %dx%d with minimum %dx%d",
                     width,
                     height,
-                    req_w,
-                    req_h,
+                    min_w,
+                    min_h,
                 )
 
     def _restore_pane_layout(self) -> None:
