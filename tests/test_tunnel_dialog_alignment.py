@@ -17,6 +17,8 @@ def test_tunnel_dialog_alignment(monkeypatch) -> None:
     expected_width = max(len(t) for t in label_texts)
     base_width = cfg.getint("dialog", "base_width")
     extra_width = cfg.getint("dialog", "extra_width")
+    resizable_width = cfg["resizable"].getboolean("width")
+    resizable_height = cfg["resizable"].getboolean("height")
 
     label_widths = []
     entry_stickies = []
@@ -165,4 +167,4 @@ def test_tunnel_dialog_alignment(monkeypatch) -> None:
     assert any((1, 1) in w for w in weights)
 
     assert dialog.geom == f"{base_width + extra_width}x200"
-    assert geometry_called.get("resizable") == (True, True)
+    assert geometry_called.get("resizable") == (resizable_width, resizable_height)

@@ -649,10 +649,16 @@ class TunnelDialog(simpledialog.Dialog):
             self.ssh_port_entry.insert(0, "22")
             self.logger.info("Tunnel dialog: default SSH port 22 inserted")
 
-        # Allow resizing and widen the dialog for comfortable editing
+        # Disable user resizing to maintain a consistent layout
         if hasattr(self, "resizable"):
-            self.resizable(True, True)
-            self.logger.debug("Tunnel dialog made resizable")
+            try:
+                self.resizable(False, False)
+                self.logger.debug("Tunnel dialog resizing disabled")
+            except Exception as exc:  # pragma: no cover - defensive
+                if hasattr(self.logger, "warning"):
+                    self.logger.warning(
+                        "Failed to disable tunnel dialog resizing: %s", exc
+                    )
 
         # Defer geometry enforcement until all widgets, including button box,
         # are created.  ``simpledialog.Dialog`` adds buttons after ``body``
