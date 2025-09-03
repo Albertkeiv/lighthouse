@@ -88,6 +88,7 @@ def test_tunnel_selection_updates_status(monkeypatch) -> None:
                         for d in cfg["tunnel"]["dns_names"].split(",")
                         if d.strip()
                     ],
+                    "dns_override": cfg["tunnel"].getboolean("dns_override"),
                 }
             ],
         }

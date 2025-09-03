@@ -69,8 +69,9 @@ class ProfileController:
         remote_port: int,
         ssh_port: int = 22,
         dns_names: Optional[List[str]] = None,
+        dns_override: bool = True,
         file_path: Union[str, Path] = PROFILES_FILE,
-    ) -> Dict[str, Union[str, int, List[str]]]:
+    ) -> Dict[str, Union[str, int, List[str], bool]]:
         return self.service.add_tunnel(
             profile_name,
             tunnel_name,
@@ -81,6 +82,7 @@ class ProfileController:
             remote_port,
             ssh_port,
             dns_names,
+            dns_override,
             file_path,
         )
 
@@ -96,8 +98,9 @@ class ProfileController:
         remote_port: int,
         ssh_port: int = 22,
         dns_names: Optional[List[str]] = None,
+        dns_override: bool = True,
         file_path: Union[str, Path] = PROFILES_FILE,
-    ) -> Dict[str, Union[str, int, List[str]]]:
+    ) -> Dict[str, Union[str, int, List[str], bool]]:
         return self.service.update_tunnel(
             profile_name,
             tunnel_name,
@@ -109,6 +112,7 @@ class ProfileController:
             remote_port,
             ssh_port,
             dns_names,
+            dns_override,
             file_path,
         )
 

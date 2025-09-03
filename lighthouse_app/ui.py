@@ -548,15 +548,26 @@ class TunnelDialog(simpledialog.Dialog):
         # DNS override
         dns_frame = tk.LabelFrame(master, text="DNS Override")
         dns_frame.grid(row=3, column=0, columnspan=2, sticky="ew")
-        tk.Label(dns_frame, text="DNS Name:").grid(row=0, column=0, sticky="nw")
+        # Checkbox controlling DNS override state
+        self.dns_enabled_var = tk.BooleanVar(value=True)
+        enable_chk = tk.Checkbutton(
+            dns_frame,
+            text="Enable DNS Override",
+            variable=self.dns_enabled_var,
+            command=self._toggle_dns_widgets,
+        )
+        enable_chk.grid(row=0, column=0, columnspan=3, sticky="w")
+        # Widgets for managing DNS names
+        self.dns_label = tk.Label(dns_frame, text="DNS Name:")
+        self.dns_label.grid(row=1, column=0, sticky="nw")
         self.dns_list = tk.Listbox(dns_frame, height=3)
-        self.dns_list.grid(row=0, column=1, rowspan=3, sticky="nsew")
+        self.dns_list.grid(row=1, column=1, rowspan=3, sticky="nsew")
         self.dns_entry = tk.Entry(dns_frame)
-        self.dns_entry.grid(row=0, column=2, sticky="ew")
-        add_btn = tk.Button(dns_frame, text="Add", command=self._add_dns)
-        add_btn.grid(row=1, column=2, sticky="ew")
-        del_btn = tk.Button(dns_frame, text="Remove", command=self._remove_dns)
-        del_btn.grid(row=2, column=2, sticky="ew")
+        self.dns_entry.grid(row=1, column=2, sticky="ew")
+        self.add_btn = tk.Button(dns_frame, text="Add", command=self._add_dns)
+        self.add_btn.grid(row=2, column=2, sticky="ew")
+        self.del_btn = tk.Button(dns_frame, text="Remove", command=self._remove_dns)
+        self.del_btn.grid(row=3, column=2, sticky="ew")
         dns_frame.columnconfigure(1, weight=1)
 
         if self.tunnel is not None:
@@ -572,11 +583,18 @@ class TunnelDialog(simpledialog.Dialog):
                 existing_dns = [self.tunnel.get("dns_name")]
             for dns in existing_dns:
                 self.dns_list.insert(tk.END, dns)
+            self.dns_enabled_var.set(self.tunnel.get("dns_override", True))
+            self.logger.info(
+                "Tunnel dialog: DNS override preset to %s",
+                self.dns_enabled_var.get(),
+            )
         else:
             # Fill SSH port with safe default for new tunnels
             self.ssh_port_entry.insert(0, "22")
             self.logger.info("Tunnel dialog: default SSH port 22 inserted")
 
+        # Apply initial state to DNS widgets
+        self._toggle_dns_widgets()
         return self.name_entry
 
     def validate(self) -> bool:  # pragma: no cover - GUI validation
@@ -630,6 +648,7 @@ class TunnelDialog(simpledialog.Dialog):
         host = self.host_entry.get().strip()
         remote = int(self.remote_entry.get().strip())
         dns_list = self.dns_names
+        dns_override = bool(self.dns_enabled_var.get())
         self.result = (
             name,
             ssh_host,
@@ -639,11 +658,13 @@ class TunnelDialog(simpledialog.Dialog):
             remote,
             ssh_port,
             dns_list,
+            dns_override,
         )
         self.logger.info(
-            "Tunnel dialog confirmed for '%s' with DNS '%s'",
+            "Tunnel dialog confirmed for '%s' with DNS '%s' (override %s)",
             name,
             ", ".join(dns_list),
+            dns_override,
         )
 
     def cancel(self, event=None) -> None:  # pragma: no cover - GUI side effect
@@ -652,6 +673,9 @@ class TunnelDialog(simpledialog.Dialog):
 
     def _add_dns(self) -> None:  # pragma: no cover - GUI helper
         """Add DNS name from entry to listbox."""
+        if not self.dns_enabled_var.get():
+            self.logger.info("Add DNS attempted while override disabled")
+            return
         name = self.dns_entry.get().strip()
         if not name:
             return
@@ -663,6 +687,9 @@ class TunnelDialog(simpledialog.Dialog):
 
     def _remove_dns(self) -> None:  # pragma: no cover - GUI helper
         """Remove selected DNS name from listbox."""
+        if not self.dns_enabled_var.get():
+            self.logger.info("Remove DNS attempted while override disabled")
+            return
         selection = self.dns_list.curselection()
         if not selection:
             return
@@ -670,6 +697,20 @@ class TunnelDialog(simpledialog.Dialog):
         name = self.dns_list.get(idx)
         self.dns_list.delete(idx)
         self.logger.info("DNS name removed: %s", name)
+
+    def _toggle_dns_widgets(self) -> None:  # pragma: no cover - GUI helper
+        """Enable or disable DNS widgets based on checkbox."""
+        enabled = self.dns_enabled_var.get()
+        state = tk.NORMAL if enabled else tk.DISABLED
+        for widget in [
+            self.dns_label,
+            self.dns_list,
+            self.dns_entry,
+            self.add_btn,
+            self.del_btn,
+        ]:
+            widget.configure(state=state)
+        self.logger.info("DNS override %s", "enabled" if enabled else "disabled")
 
 
 class SSHKeyManager:
@@ -1389,6 +1430,7 @@ class LighthouseApp:
             remote_port,
             ssh_port,
             dns_names,
+            dns_override,
         ) = dialog.result
         try:
             tunnel = self.profile_controller.add_tunnel(
@@ -1401,6 +1443,7 @@ class LighthouseApp:
                 remote_port,
                 ssh_port,
                 dns_names,
+                dns_override,
             )
             target = f"{host}:{remote_port}"
             self.tunnel_list.insert("", tk.END, values=(tunnel["name"], target))
@@ -1472,6 +1515,7 @@ class LighthouseApp:
             remote_port,
             ssh_port,
             dns_names,
+            dns_override,
         ) = dialog.result
         try:
             self.profile_controller.update_tunnel(
@@ -1485,6 +1529,7 @@ class LighthouseApp:
                 remote_port,
                 ssh_port,
                 dns_names,
+                dns_override,
             )
             target = f"{host}:{remote_port}"
             self.tunnel_list.item(item_id, values=(new_name, target))

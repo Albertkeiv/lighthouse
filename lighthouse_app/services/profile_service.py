@@ -165,8 +165,9 @@ class ProfileService:
         remote_port: int,
         ssh_port: int = 22,
         dns_names: Optional[List[str]] = None,
+        dns_override: bool = True,
         file_path: Union[str, Path] = PROFILES_FILE,
-    ) -> Dict[str, Union[str, int, List[str]]]:
+    ) -> Dict[str, Union[str, int, List[str], bool]]:
         dns_names = [str(n).strip() for n in dns_names or [] if str(n).strip()]
         profiles = _load_profiles(file_path)
         profile = next((p for p in profiles if p.get("name") == profile_name), None)
@@ -186,6 +187,7 @@ class ProfileService:
             "remote_host": remote_host,
             "remote_port": int(remote_port),
             "dns_names": dns_names,
+            "dns_override": bool(dns_override),
         }
         tunnels.append(tunnel)
         save_profiles(profiles, file_path)
@@ -204,8 +206,9 @@ class ProfileService:
         remote_port: int,
         ssh_port: int = 22,
         dns_names: Optional[List[str]] = None,
+        dns_override: bool = True,
         file_path: Union[str, Path] = PROFILES_FILE,
-    ) -> Dict[str, Union[str, int, List[str]]]:
+    ) -> Dict[str, Union[str, int, List[str], bool]]:
         dns_names = [str(n).strip() for n in dns_names or [] if str(n).strip()]
         profiles = _load_profiles(file_path)
         profile = next((p for p in profiles if p.get("name") == profile_name), None)
@@ -231,6 +234,7 @@ class ProfileService:
                 "remote_host": remote_host,
                 "remote_port": int(remote_port),
                 "dns_names": dns_names,
+                "dns_override": bool(dns_override),
             }
         )
         save_profiles(profiles, file_path)
@@ -304,13 +308,19 @@ class ProfileService:
         )
         forwarder.start()
         self.active_tunnels[key] = forwarder
-        add_hosts_block(
-            profile_name,
-            bind_ip,
-            tunnel.get("dns_names", []),
-            self.hosts_file,
-            self.logger,
-        )
+        if tunnel.get("dns_override", True):
+            add_hosts_block(
+                profile_name,
+                bind_ip,
+                tunnel.get("dns_names", []),
+                self.hosts_file,
+                self.logger,
+            )
+        else:
+            self.logger.info(
+                "DNS override disabled for tunnel '%s'; skipping hosts update",
+                tunnel_name,
+            )
         self.logger.info(
             "Started tunnel '%s' for profile '%s'", tunnel_name, profile_name
         )

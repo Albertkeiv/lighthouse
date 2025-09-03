@@ -47,8 +47,9 @@ class DummyLogText:
         pass
 
 
-def test_start_tunnel_appends_log(monkeypatch) -> None:
+def test_start_tunnel_appends_log(monkeypatch, tmp_path) -> None:
     cfg = _load_cfg()
+    cfg["hosts"]["file"] = str(tmp_path / cfg["hosts"]["file"])
     app = _make_app(monkeypatch, cfg)
 
     profile_name = cfg["profile"]["name"]
@@ -93,6 +94,7 @@ def test_start_tunnel_appends_log(monkeypatch) -> None:
                         for d in tunnel_cfg["dns_names"].split(",")
                         if d.strip()
                     ],
+                    "dns_override": tunnel_cfg.getboolean("dns_override"),
                 }
             ],
         }
@@ -125,8 +127,9 @@ def test_start_tunnel_appends_log(monkeypatch) -> None:
     assert app.log_text.state == "disabled"
 
 
-def test_stop_tunnel_appends_log(monkeypatch) -> None:
+def test_stop_tunnel_appends_log(monkeypatch, tmp_path) -> None:
     cfg = _load_cfg()
+    cfg["hosts"]["file"] = str(tmp_path / cfg["hosts"]["file"])
     app = _make_app(monkeypatch, cfg)
 
     profile_name = cfg["profile"]["name"]

@@ -35,6 +35,7 @@ def test_add_tunnel_and_storage(tmp_path):
         int(cfg["tunnel"]["remote_port"]),
         int(cfg["tunnel"]["ssh_port"]),
         [d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()],
+        cfg["tunnel"].getboolean("dns_override"),
         file_path=profiles_file,
     )
 
@@ -52,6 +53,7 @@ def test_add_tunnel_and_storage(tmp_path):
     assert t["dns_names"] == [
         d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()
     ]
+    assert t["dns_override"] is cfg["tunnel"].getboolean("dns_override")
 
 
 def test_add_tunnel_without_dns_name(tmp_path):
@@ -71,6 +73,7 @@ def test_add_tunnel_without_dns_name(tmp_path):
         int(cfg["no_dns_tunnel"]["local_port"]),
         cfg["no_dns_tunnel"]["remote_host"],
         int(cfg["no_dns_tunnel"]["remote_port"]),
+        dns_override=cfg["no_dns_tunnel"].getboolean("dns_override"),
         file_path=profiles_file,
     )
 
@@ -80,6 +83,7 @@ def test_add_tunnel_without_dns_name(tmp_path):
     t = tunnels[0]
     assert t["dns_names"] == []
     assert t["ssh_port"] == 22
+    assert t["dns_override"] is cfg["no_dns_tunnel"].getboolean("dns_override")
 
 
 def test_update_existing_tunnel(tmp_path):
@@ -101,6 +105,7 @@ def test_update_existing_tunnel(tmp_path):
         int(cfg["tunnel"]["remote_port"]),
         int(cfg["tunnel"]["ssh_port"]),
         [d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()],
+        cfg["tunnel"].getboolean("dns_override"),
         file_path=profiles_file,
     )
 
@@ -114,7 +119,12 @@ def test_update_existing_tunnel(tmp_path):
         cfg["updated_tunnel"]["remote_host"],
         int(cfg["updated_tunnel"]["remote_port"]),
         int(cfg["updated_tunnel"]["ssh_port"]),
-        [d.strip() for d in cfg["updated_tunnel"]["dns_names"].split(",") if d.strip()],
+        [
+            d.strip()
+            for d in cfg["updated_tunnel"]["dns_names"].split(",")
+            if d.strip()
+        ],
+        cfg["updated_tunnel"].getboolean("dns_override"),
         file_path=profiles_file,
     )
 
@@ -132,6 +142,7 @@ def test_update_existing_tunnel(tmp_path):
         for d in cfg["updated_tunnel"]["dns_names"].split(",")
         if d.strip()
     ]
+    assert t["dns_override"] is cfg["updated_tunnel"].getboolean("dns_override")
 
 
 def test_delete_tunnel(tmp_path):
@@ -153,6 +164,7 @@ def test_delete_tunnel(tmp_path):
         int(cfg["tunnel"]["remote_port"]),
         int(cfg["tunnel"]["ssh_port"]),
         [d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()],
+        cfg["tunnel"].getboolean("dns_override"),
         file_path=profiles_file,
     )
 
