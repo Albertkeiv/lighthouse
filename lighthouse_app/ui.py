@@ -278,6 +278,12 @@ class ProfileDialog(simpledialog.Dialog):
         else:  # pragma: no cover - defensive
             self.logger.debug("Resize control not supported in this context")
 
+        # Allow the dialog's contents to stretch with window width
+        if hasattr(master, "columnconfigure"):
+            master.columnconfigure(0, weight=1)
+            master.columnconfigure(1, weight=1)
+            self.logger.debug("Profile dialog master configured for horizontal expansion")
+
         # Profile name container with border and caption above the entry
         self.name_frame = tk.LabelFrame(master, text="Profile name")
         self.name_frame.grid(row=0, column=0, columnspan=2, sticky="ew")
@@ -351,6 +357,17 @@ class ProfileDialog(simpledialog.Dialog):
                     self.key_var.set(key_name)
                     break
             self.ip_entry.insert(0, self.profile.get("ip", ""))
+
+        # Ensure dialog height and width accommodate all widgets
+        if getattr(self, "tk", None) and hasattr(self, "update_idletasks"):
+            self.update_idletasks()
+            required_w = self.winfo_reqwidth()
+            required_h = self.winfo_reqheight()
+            if hasattr(self, "minsize"):
+                self.minsize(required_w, required_h)
+                self.logger.debug(
+                    "Profile dialog minimum size set to %dx%d", required_w, required_h
+                )
 
         return self.name_entry
 
@@ -645,6 +662,17 @@ class TunnelDialog(simpledialog.Dialog):
         self.logger.debug(
             "Tunnel dialog widened by %d pixels to %dx%d", extra_width, new_w, current_h
         )
+
+        # Prevent the dialog from shrinking below the space needed for widgets
+        if getattr(self, "tk", None) and hasattr(self, "update_idletasks"):
+            self.update_idletasks()
+            req_w = self.winfo_reqwidth()
+            req_h = self.winfo_reqheight()
+            if hasattr(self, "minsize"):
+                self.minsize(req_w, req_h)
+                self.logger.debug(
+                    "Tunnel dialog minimum size set to %dx%d", req_w, req_h
+                )
 
         # Apply initial state to DNS widgets
         self._toggle_dns_widgets()
@@ -1151,6 +1179,31 @@ class LighthouseApp:
             button_frame, text="Settings", command=self._on_settings
         )
         self.settings_btn.grid(row=0, column=1, sticky="ew")
+
+        # Ensure the main window is large enough to display all widgets
+        if hasattr(self.root, "update_idletasks"):
+            self.root.update_idletasks()
+            if all(
+                hasattr(self.root, attr)
+                for attr in ["winfo_reqwidth", "winfo_reqheight", "winfo_width", "winfo_height"]
+            ):
+                req_w = self.root.winfo_reqwidth()
+                req_h = self.root.winfo_reqheight()
+                cur_w = self.root.winfo_width()
+                cur_h = self.root.winfo_height()
+                width = max(cur_w, req_w)
+                height = max(cur_h, req_h)
+                if hasattr(self.root, "geometry"):
+                    self.root.geometry(f"{width}x{height}")
+                if hasattr(self.root, "minsize"):
+                    self.root.minsize(req_w, req_h)
+                self.logger.debug(
+                    "Main window geometry enforced to %dx%d with minimum %dx%d",
+                    width,
+                    height,
+                    req_w,
+                    req_h,
+                )
 
     def _restore_pane_layout(self) -> None:
         """Apply saved pane positions if available."""
