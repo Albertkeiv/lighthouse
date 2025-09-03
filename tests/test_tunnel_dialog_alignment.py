@@ -133,16 +133,24 @@ def test_tunnel_dialog_alignment(monkeypatch) -> None:
             self.dns_names = []
             self.logger = logging.getLogger(__name__)
             self.geom = None
+            self.tk = True
+            self.minsize_called = None
         def update_idletasks(self):
             pass
         def winfo_width(self):
             return base_width
         def winfo_height(self):
             return 200
+        def winfo_reqwidth(self):
+            return base_width + extra_width
+        def winfo_reqheight(self):
+            return 200
         def geometry(self, value):
             self.geom = value
         def resizable(self, width, height):
             geometry_called["resizable"] = (width, height)
+        def minsize(self, w, h):
+            self.minsize_called = (w, h)
 
     master = DummyFrame()
     dialog = DummyDialog()

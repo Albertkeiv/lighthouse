@@ -198,6 +198,7 @@ def test_tunnel_dialog_sets_minsize(monkeypatch) -> None:
             self.dns_names = []
             self.logger = logging.getLogger("test")
             self.minsize_called = None
+            self.geometry_called = None
             self.tk = True
 
         def resizable(self, *a, **k):
@@ -218,8 +219,8 @@ def test_tunnel_dialog_sets_minsize(monkeypatch) -> None:
         def winfo_reqheight(self):
             return expected_h
 
-        def geometry(self, *a, **k):
-            pass
+        def geometry(self, value):
+            self.geometry_called = value
 
         def minsize(self, w, h):
             self.minsize_called = (w, h)
@@ -231,4 +232,5 @@ def test_tunnel_dialog_sets_minsize(monkeypatch) -> None:
     dialog.body(object())
 
     assert dialog.minsize_called == (expected_w, expected_h)
+    assert dialog.geometry_called == f"{expected_w}x{expected_h}"
 

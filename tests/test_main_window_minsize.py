@@ -127,9 +127,13 @@ def test_main_window_minsize(monkeypatch):
     monkeypatch.setattr(ui.LighthouseApp, "_load_profiles_into_list", lambda self: None)
 
     cfg = configparser.ConfigParser()
-    cfg["ui"] = {}
+    cfg["ui"] = {
+        "min_width": str(expected_w),
+        "min_height": str(expected_h),
+    }
     root = DummyRoot()
     ui.LighthouseApp(root, cfg)
 
     assert root.minsize_called == (expected_w, expected_h)
+    assert root.geometry_called == f"{expected_w}x{expected_h}"
 
