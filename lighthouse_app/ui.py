@@ -926,8 +926,10 @@ class LighthouseApp:
         self.top_pane.grid(row=0, column=0, sticky="nsew")
         self.top_pane.bind("<ButtonRelease-1>", self._on_pane_resize)
 
-        # Profiles list displayed as a table for clarity
-        profile_frame = tk.Frame(self.top_pane, bd=2, relief=tk.GROOVE)
+        # Profiles list displayed as a table inside a labeled frame for clarity
+        profile_frame = tk.LabelFrame(
+            self.top_pane, text="Profiles", bd=2, relief=tk.GROOVE
+        )
         self.top_pane.add(profile_frame, minsize=100)
         self.profile_list = ttk.Treeview(
             profile_frame,
@@ -960,8 +962,10 @@ class LighthouseApp:
         )
         delete_btn.pack(fill="x")
 
-        # Tunnels list
-        tunnel_frame = tk.Frame(self.top_pane, bd=2, relief=tk.GROOVE)
+        # Tunnels list displayed inside its own labeled frame
+        tunnel_frame = tk.LabelFrame(
+            self.top_pane, text="Tunnels", bd=2, relief=tk.GROOVE
+        )
         self.top_pane.add(tunnel_frame, minsize=100)
         # Display tunnels in a table with tunnel name and target host
         self.tunnel_list = ttk.Treeview(
