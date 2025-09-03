@@ -533,6 +533,8 @@ class TunnelDialog(simpledialog.Dialog):
         # Ensure the main container expands with window resizing
         if hasattr(master, "columnconfigure"):
             master.columnconfigure(0, weight=1)
+            master.columnconfigure(1, weight=1)
+            self.logger.debug("Tunnel dialog master configured for full-width expansion")
 
         # Determine uniform width for all labels so entries align
         label_texts = [
@@ -596,7 +598,7 @@ class TunnelDialog(simpledialog.Dialog):
 
         # DNS override
         dns_frame = tk.LabelFrame(master, text="DNS Override")
-        dns_frame.grid(row=3, column=0, sticky="ew")
+        dns_frame.grid(row=3, column=0, columnspan=2, sticky="ew")
         dns_frame.columnconfigure(1, weight=1)
         # Checkbox controlling DNS override state
         self.dns_enabled_var = tk.BooleanVar(value=True)
@@ -1041,6 +1043,11 @@ class LighthouseApp:
 
     def _build_ui(self) -> None:
         """Create and arrange widgets using a resizable paned window."""
+        # Allow the main window to be resized by the user
+        if hasattr(self.root, "resizable"):
+            self.root.resizable(True, True)
+            self.logger.debug("Main window resize enabled")
+
         # Configure grid for the main window. Only one row and column are
         # required because all control buttons now live inside their
         # respective panes instead of in a separate bottom row.
