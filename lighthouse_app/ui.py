@@ -513,41 +513,74 @@ class TunnelDialog(simpledialog.Dialog):
 
     def body(self, master: tk.Misc) -> tk.Entry:
         """Build dialog widgets grouped in labeled frames."""
+        # Ensure the main container expands with window resizing
+        if hasattr(master, "columnconfigure"):
+            master.columnconfigure(0, weight=1)
+
+        # Determine uniform width for all labels so entries align
+        label_texts = [
+            "SSH Host:",
+            "Username:",
+            "SSH Port:",
+            "Local port:",
+            "Remote host:",
+            "Remote port:",
+            "DNS Name:",
+        ]
+        label_width = max(len(text) for text in label_texts)
+        self.logger.debug("Tunnel dialog: label width %d characters", label_width)
+
         # Frame for tunnel name input
         name_frame = tk.LabelFrame(master, text="Tunnel name")
         name_frame.grid(row=0, column=0, columnspan=2, sticky="ew")
+        name_frame.columnconfigure(0, weight=1)
         self.name_entry = tk.Entry(name_frame)
         self.name_entry.grid(row=0, column=0, sticky="ew")
 
         # SSH settings
         ssh_frame = tk.LabelFrame(master, text="SSH Setting")
         ssh_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
-        tk.Label(ssh_frame, text="SSH Host:").grid(row=0, column=0, sticky="w")
+        ssh_frame.columnconfigure(1, weight=1)
+        tk.Label(ssh_frame, text="SSH Host:", width=label_width, anchor="w").grid(
+            row=0, column=0, sticky="w"
+        )
         self.ssh_host_entry = tk.Entry(ssh_frame)
-        self.ssh_host_entry.grid(row=0, column=1)
-        tk.Label(ssh_frame, text="Username:").grid(row=1, column=0, sticky="w")
+        self.ssh_host_entry.grid(row=0, column=1, sticky="ew")
+        tk.Label(ssh_frame, text="Username:", width=label_width, anchor="w").grid(
+            row=1, column=0, sticky="w"
+        )
         self.user_entry = tk.Entry(ssh_frame)
-        self.user_entry.grid(row=1, column=1)
-        tk.Label(ssh_frame, text="SSH Port:").grid(row=2, column=0, sticky="w")
+        self.user_entry.grid(row=1, column=1, sticky="ew")
+        tk.Label(ssh_frame, text="SSH Port:", width=label_width, anchor="w").grid(
+            row=2, column=0, sticky="w"
+        )
         self.ssh_port_entry = tk.Entry(ssh_frame)
-        self.ssh_port_entry.grid(row=2, column=1)
+        self.ssh_port_entry.grid(row=2, column=1, sticky="ew")
 
         # Tunnel settings
         tunnel_frame = tk.LabelFrame(master, text="Tunnel Setting")
         tunnel_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
-        tk.Label(tunnel_frame, text="Local port:").grid(row=0, column=0, sticky="w")
+        tunnel_frame.columnconfigure(1, weight=1)
+        tk.Label(tunnel_frame, text="Local port:", width=label_width, anchor="w").grid(
+            row=0, column=0, sticky="w"
+        )
         self.local_entry = tk.Entry(tunnel_frame)
-        self.local_entry.grid(row=0, column=1)
-        tk.Label(tunnel_frame, text="Remote host:").grid(row=1, column=0, sticky="w")
+        self.local_entry.grid(row=0, column=1, sticky="ew")
+        tk.Label(
+            tunnel_frame, text="Remote host:", width=label_width, anchor="w"
+        ).grid(row=1, column=0, sticky="w")
         self.host_entry = tk.Entry(tunnel_frame)
-        self.host_entry.grid(row=1, column=1)
-        tk.Label(tunnel_frame, text="Remote port:").grid(row=2, column=0, sticky="w")
+        self.host_entry.grid(row=1, column=1, sticky="ew")
+        tk.Label(
+            tunnel_frame, text="Remote port:", width=label_width, anchor="w"
+        ).grid(row=2, column=0, sticky="w")
         self.remote_entry = tk.Entry(tunnel_frame)
-        self.remote_entry.grid(row=2, column=1)
+        self.remote_entry.grid(row=2, column=1, sticky="ew")
 
         # DNS override
         dns_frame = tk.LabelFrame(master, text="DNS Override")
-        dns_frame.grid(row=3, column=0, sticky="w")
+        dns_frame.grid(row=3, column=0, sticky="ew")
+        dns_frame.columnconfigure(1, weight=1)
         # Checkbox controlling DNS override state
         self.dns_enabled_var = tk.BooleanVar(value=True)
         enable_chk = tk.Checkbutton(
@@ -558,7 +591,9 @@ class TunnelDialog(simpledialog.Dialog):
         )
         enable_chk.grid(row=0, column=0, columnspan=3, sticky="w")
         # Widgets for managing DNS names
-        self.dns_label = tk.Label(dns_frame, text="DNS Name:")
+        self.dns_label = tk.Label(
+            dns_frame, text="DNS Name:", width=label_width, anchor="nw"
+        )
         self.dns_label.grid(row=1, column=0, sticky="nw")
         # List of DNS names kept compact to reduce overall width
         self.dns_list = tk.Listbox(dns_frame, height=3)
@@ -571,7 +606,6 @@ class TunnelDialog(simpledialog.Dialog):
         self.add_btn.grid(row=3, column=1, sticky="ew")
         self.del_btn = tk.Button(dns_frame, text="-", command=self._remove_dns)
         self.del_btn.grid(row=3, column=2, sticky="ew")
-        dns_frame.columnconfigure(1, weight=1)
 
         if self.tunnel is not None:
             self.name_entry.insert(0, self.tunnel.get("name", ""))
@@ -595,6 +629,22 @@ class TunnelDialog(simpledialog.Dialog):
             # Fill SSH port with safe default for new tunnels
             self.ssh_port_entry.insert(0, "22")
             self.logger.info("Tunnel dialog: default SSH port 22 inserted")
+
+        # Allow resizing and widen the dialog for comfortable editing
+        if hasattr(self, "resizable"):
+            self.resizable(True, True)
+            self.logger.debug("Tunnel dialog made resizable")
+
+        if hasattr(self, "update_idletasks"):
+            self.update_idletasks()
+        extra_width = 80
+        current_w = self.winfo_width()
+        current_h = self.winfo_height()
+        new_w = current_w + extra_width
+        self.geometry(f"{new_w}x{current_h}")
+        self.logger.debug(
+            "Tunnel dialog widened by %d pixels to %dx%d", extra_width, new_w, current_h
+        )
 
         # Apply initial state to DNS widgets
         self._toggle_dns_widgets()

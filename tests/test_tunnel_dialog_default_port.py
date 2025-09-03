@@ -110,6 +110,16 @@ def test_tunnel_dialog_prefills_ssh_port(monkeypatch) -> None:
             self.tunnel = None
             self.dns_names = []
             self.logger = logging.getLogger(__name__)
+        def update_idletasks(self):
+            pass
+        def winfo_width(self):
+            return 300
+        def winfo_height(self):
+            return 200
+        def geometry(self, _):
+            pass
+        def resizable(self, *_, **__):
+            pass
 
     dialog = DummyDialog()
     dialog.body(object())
