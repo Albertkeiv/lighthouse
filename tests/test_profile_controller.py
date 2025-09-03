@@ -19,8 +19,8 @@ def test_controller_delegates_to_service(monkeypatch):
     controller = ProfileController()
     called = {}
 
-    def fake_create(name, key_path, ip=None, file_path=None):
-        called["args"] = (name, key_path, ip, file_path)
+    def fake_create(name, key_path, ip=None, auto_ip=True, file_path=None):
+        called["args"] = (name, key_path, ip, auto_ip, file_path)
         return {"name": name}
 
     monkeypatch.setattr(controller.service, "create_profile", fake_create)

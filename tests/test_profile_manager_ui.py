@@ -45,9 +45,11 @@ def test_new_profile_skips_success_popup(monkeypatch) -> None:
                 cfg["profile1"]["name"],
                 cfg["profile1"]["ssh_key_filename"],
                 None,
+                True,
             )
     monkeypatch.setattr(ui, "ProfileDialog", DummyDialog)
-    def fake_create(name, key_path, ip):
+    def fake_create(name, key_path, ip, auto_ip):
+        assert auto_ip is True
         return {"name": name, "ip": cfg["expected"]["first_ip"]}
     monkeypatch.setattr(app.profile_controller, "create_profile", fake_create)
 
@@ -96,9 +98,11 @@ def test_edit_profile_skips_success_popup(monkeypatch) -> None:
                 cfg["updated_profile"]["name"],
                 cfg["updated_profile"]["ssh_key_filename"],
                 cfg["updated_profile"]["ip"],
+                False,
             )
     monkeypatch.setattr(ui, "ProfileDialog", DummyDialog)
-    def fake_update(orig, new, key_path, ip):
+    def fake_update(orig, new, key_path, ip, auto_ip):
+        assert auto_ip is False
         return {"name": new, "ip": cfg["expected"]["updated_ip"]}
     monkeypatch.setattr(app.profile_controller, "update_profile", fake_update)
 

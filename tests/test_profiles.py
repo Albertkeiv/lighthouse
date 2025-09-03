@@ -147,3 +147,25 @@ def test_update_existing_profile(tmp_path):
     assert len(stored) == 1
     assert stored[0]["name"] == cfg["updated_profile"]["name"]
     assert stored[0]["ip"] == cfg["expected"]["updated_ip"]
+
+
+def test_auto_ip_persistence(tmp_path):
+    cfg = _load_cfg()
+    profiles_file = tmp_path / PROFILES_FILE
+
+    key = tmp_path / cfg["profile1"]["ssh_key_filename"]
+    key.touch()
+    service = ProfileService()
+    profile = service.create_profile(
+        cfg["profile1"]["name"], key, file_path=profiles_file, auto_ip=True
+    )
+    assert profile["auto_ip"] is True
+
+    stored = load_profiles(profiles_file)
+    assert stored[0]["auto_ip"] is True
+
+    updated = service.update_profile(
+        cfg["profile1"]["name"], cfg["profile1"]["name"], key, file_path=profiles_file, auto_ip=True
+    )
+    assert updated["auto_ip"] is True
+    assert updated["ip"] == profile["ip"]

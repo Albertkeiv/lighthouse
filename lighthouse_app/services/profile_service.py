@@ -62,6 +62,7 @@ class ProfileService:
         name: str,
         ssh_key_path: Union[str, Path],
         ip: Optional[str] = None,
+        auto_ip: bool = True,
         file_path: Union[str, Path] = PROFILES_FILE,
     ) -> Dict[str, str]:
         profiles = _load_profiles(file_path)
@@ -75,11 +76,23 @@ class ProfileService:
             if any(p.get("ip") == ip_str for p in profiles):
                 raise ValueError(f"IP address {ip_str} is already in use")
         else:
-            ip_str = _allocate_ip(profiles)
-        profile = {"name": name, "ip": ip_str, "ssh_key": str(key_path)}
+            if auto_ip:
+                ip_str = _allocate_ip(profiles)
+            else:
+                raise ValueError(
+                    "IP address must be provided when automatic assignment is disabled"
+                )
+        profile = {
+            "name": name,
+            "ip": ip_str,
+            "ssh_key": str(key_path),
+            "auto_ip": auto_ip,
+        }
         profiles.append(profile)
         save_profiles(profiles, file_path)
-        self.logger.info("Profile '%s' created with IP %s", name, ip_str)
+        self.logger.info(
+            "Profile '%s' created with IP %s (auto=%s)", name, ip_str, auto_ip
+        )
         return profile
 
     def delete_profile(
@@ -99,6 +112,7 @@ class ProfileService:
         new_name: str,
         ssh_key_path: Union[str, Path],
         ip: Optional[str] = None,
+        auto_ip: bool = True,
         file_path: Union[str, Path] = PROFILES_FILE,
     ) -> Dict[str, str]:
         profiles = _load_profiles(file_path)
@@ -118,11 +132,23 @@ class ProfileService:
             ):
                 raise ValueError(f"IP address {ip_str} is already in use")
         else:
-            remaining = [p for p in profiles if p.get("name") != original_name]
-            ip_str = _allocate_ip(remaining)
-        profile.update({"name": new_name, "ssh_key": str(key_path), "ip": ip_str})
+            if auto_ip:
+                remaining = [p for p in profiles if p.get("name") != original_name]
+                ip_str = profile.get("ip") or _allocate_ip(remaining)
+            else:
+                raise ValueError(
+                    "IP address must be provided when automatic assignment is disabled"
+                )
+        profile.update(
+            {
+                "name": new_name,
+                "ssh_key": str(key_path),
+                "ip": ip_str,
+                "auto_ip": auto_ip,
+            }
+        )
         save_profiles(profiles, file_path)
-        self.logger.info("Profile '%s' updated", original_name)
+        self.logger.info("Profile '%s' updated (auto=%s)", original_name, auto_ip)
         return profile
 
     # ------------------------------------------------------------------
