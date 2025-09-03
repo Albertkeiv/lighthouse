@@ -547,7 +547,7 @@ class TunnelDialog(simpledialog.Dialog):
 
         # DNS override
         dns_frame = tk.LabelFrame(master, text="DNS Override")
-        dns_frame.grid(row=3, column=0, columnspan=2, sticky="ew")
+        dns_frame.grid(row=3, column=0, sticky="w")
         # Checkbox controlling DNS override state
         self.dns_enabled_var = tk.BooleanVar(value=True)
         enable_chk = tk.Checkbutton(
@@ -560,13 +560,16 @@ class TunnelDialog(simpledialog.Dialog):
         # Widgets for managing DNS names
         self.dns_label = tk.Label(dns_frame, text="DNS Name:")
         self.dns_label.grid(row=1, column=0, sticky="nw")
+        # List of DNS names kept compact to reduce overall width
         self.dns_list = tk.Listbox(dns_frame, height=3)
-        self.dns_list.grid(row=1, column=1, rowspan=3, sticky="nsew")
+        self.dns_list.grid(row=1, column=1, columnspan=2, sticky="nsew")
+        # Entry for new DNS names placed below the list
         self.dns_entry = tk.Entry(dns_frame)
-        self.dns_entry.grid(row=1, column=2, sticky="ew")
-        self.add_btn = tk.Button(dns_frame, text="Add", command=self._add_dns)
-        self.add_btn.grid(row=2, column=2, sticky="ew")
-        self.del_btn = tk.Button(dns_frame, text="Remove", command=self._remove_dns)
+        self.dns_entry.grid(row=2, column=1, columnspan=2, sticky="ew")
+        # Action buttons placed under the entry for a cleaner layout
+        self.add_btn = tk.Button(dns_frame, text="+", command=self._add_dns)
+        self.add_btn.grid(row=3, column=1, sticky="ew")
+        self.del_btn = tk.Button(dns_frame, text="-", command=self._remove_dns)
         self.del_btn.grid(row=3, column=2, sticky="ew")
         dns_frame.columnconfigure(1, weight=1)
 
