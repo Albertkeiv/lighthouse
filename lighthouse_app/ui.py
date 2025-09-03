@@ -307,7 +307,7 @@ class ProfileDialog(simpledialog.Dialog):
         self.ip_frame.columnconfigure(1, weight=1)
         self.logger.debug("IP settings fields prepared in labelled frame")
 
-        auto_default = True if self.profile is None else False
+        auto_default = True if self.profile is None else bool(self.profile.get("auto_ip"))
         self.auto_var = tk.BooleanVar(value=auto_default)
         auto_chk = tk.Checkbutton(
             self.ip_frame,
@@ -412,8 +412,9 @@ class ProfileDialog(simpledialog.Dialog):
         name = self.name_entry.get().strip()
         key_name = self.key_var.get().strip()
         key_path = self.key_map.get(key_name, "")
-        ip_str = None if self.auto_var.get() else self.ip_entry.get().strip()
-        self.result = (name, key_path, ip_str)
+        ip_str = self.ip_entry.get().strip() or None
+        auto_assign = self.auto_var.get()
+        self.result = (name, key_path, ip_str, auto_assign)
         self.logger.info(
             "Profile dialog confirmed for '%s' with key '%s'", name, key_name
         )
@@ -1268,9 +1269,9 @@ class LighthouseApp:
         if not getattr(dialog, "result", None):
             self.logger.info("Profile creation cancelled by user")
             return
-        name, key_path, ip = dialog.result
+        name, key_path, ip, auto_ip = dialog.result
         try:
-            profile = self.profile_controller.create_profile(name, key_path, ip)
+            profile = self.profile_controller.create_profile(name, key_path, ip, auto_ip)
             self.profile_list.insert(
                 "",
                 tk.END,
@@ -1307,9 +1308,9 @@ class LighthouseApp:
         if not getattr(dialog, "result", None):
             self.logger.info("Profile edit cancelled by user")
             return
-        new_name, key_path, ip = dialog.result
+        new_name, key_path, ip, auto_ip = dialog.result
         try:
-            updated = self.profile_controller.update_profile(name, new_name, key_path, ip)
+            updated = self.profile_controller.update_profile(name, new_name, key_path, ip, auto_ip)
             self.profile_list.item(
                 item_id, values=(updated["name"], updated["ip"])
             )

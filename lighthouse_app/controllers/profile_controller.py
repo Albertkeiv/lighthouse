@@ -36,9 +36,10 @@ class ProfileController:
         name: str,
         ssh_key_path: Union[str, Path],
         ip: Optional[str] = None,
+        auto_ip: bool = True,
         file_path: Union[str, Path] = PROFILES_FILE,
     ) -> Dict[str, str]:
-        return self.service.create_profile(name, ssh_key_path, ip, file_path)
+        return self.service.create_profile(name, ssh_key_path, ip, auto_ip, file_path)
 
     def update_profile(
         self,
@@ -46,9 +47,12 @@ class ProfileController:
         new_name: str,
         ssh_key_path: Union[str, Path],
         ip: Optional[str] = None,
+        auto_ip: bool = True,
         file_path: Union[str, Path] = PROFILES_FILE,
     ) -> Dict[str, str]:
-        return self.service.update_profile(original_name, new_name, ssh_key_path, ip, file_path)
+        return self.service.update_profile(
+            original_name, new_name, ssh_key_path, ip, auto_ip, file_path
+        )
 
     def delete_profile(self, name: str, file_path: Union[str, Path] = PROFILES_FILE) -> bool:
         return self.service.delete_profile(name, file_path)

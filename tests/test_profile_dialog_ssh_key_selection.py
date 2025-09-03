@@ -122,4 +122,4 @@ def test_profile_dialog_uses_existing_keys(monkeypatch):
     assert dialog.validate()
     dialog.apply()
 
-    assert dialog.result == (profile_name, key_path, None)
+    assert dialog.result == (profile_name, key_path, None, True)
