@@ -1,4 +1,3 @@
-"""Tests for default SSH port in TunnelDialog."""
 import configparser
 from pathlib import Path
 import logging
@@ -11,11 +10,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lighthouse_app import ui
 
 
-def test_tunnel_dialog_prefills_ssh_port(monkeypatch) -> None:
-    """New tunnel dialog should pre-fill SSH port from config."""
+def test_tunnel_dialog_labelframes(monkeypatch) -> None:
+    """Tunnel dialog should group fields into expected label frames."""
     cfg = configparser.ConfigParser()
     cfg.read(Path(__file__).with_name("profile_tunnels_test_config.ini"))
-    expected = cfg["defaults"].getint("ssh_port")
+
+    created_frames = []
+    created_labels = []
 
     class DummyEntry:
         def __init__(self, master=None):
@@ -30,8 +31,8 @@ def test_tunnel_dialog_prefills_ssh_port(monkeypatch) -> None:
             pass
 
     class DummyLabel:
-        def __init__(self, *_, **__):
-            pass
+        def __init__(self, master=None, text=""):
+            created_labels.append(text)
         def grid(self, *_, **__):
             pass
 
@@ -50,10 +51,9 @@ def test_tunnel_dialog_prefills_ssh_port(monkeypatch) -> None:
             pass
 
     class DummyLabelFrame(DummyFrame):
-        """Behaves like ``DummyFrame`` but records label frames."""
         def __init__(self, master=None, text=""):
             super().__init__(master)
-            self.text = text
+            created_frames.append(text)
 
     class DummyListbox:
         def __init__(self, *_, **__):
@@ -87,5 +87,12 @@ def test_tunnel_dialog_prefills_ssh_port(monkeypatch) -> None:
 
     dialog = DummyDialog()
     dialog.body(object())
-    assert dialog.ssh_port_entry.get() == str(expected)
 
+    expected_frames = [
+        cfg["ui_labels"]["tunnel_name"],
+        cfg["ui_labels"]["ssh_settings"],
+        cfg["ui_labels"]["tunnel_settings"],
+        cfg["ui_labels"]["dns_override"],
+    ]
+    assert created_frames == expected_frames
+    assert cfg["ui_labels"]["dns_name"] in created_labels
