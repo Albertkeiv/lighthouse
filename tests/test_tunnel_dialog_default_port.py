@@ -34,11 +34,15 @@ def test_tunnel_dialog_prefills_ssh_port(monkeypatch) -> None:
             pass
         def grid(self, *_, **__):
             pass
+        def configure(self, *_, **__):
+            pass
 
     class DummyButton:
         def __init__(self, *_, **__):
             pass
         def grid(self, *_, **__):
+            pass
+        def configure(self, *_, **__):
             pass
 
     class DummyFrame:
@@ -66,6 +70,24 @@ def test_tunnel_dialog_prefills_ssh_port(monkeypatch) -> None:
             return self.items
         def delete(self, start, end=None):
             self.items.clear()
+        def configure(self, *_, **__):
+            pass
+
+    class DummyCheckbutton:
+        def __init__(self, *_, **__):
+            pass
+        def grid(self, *_, **__):
+            pass
+        def configure(self, *_, **__):
+            pass
+
+    class DummyVar:
+        def __init__(self, value=True):
+            self.value = value
+        def get(self):
+            return self.value
+        def set(self, value):
+            self.value = value
 
     fake_tk = SimpleNamespace(
         Label=DummyLabel,
@@ -74,6 +96,10 @@ def test_tunnel_dialog_prefills_ssh_port(monkeypatch) -> None:
         Frame=DummyFrame,
         LabelFrame=DummyLabelFrame,
         Listbox=DummyListbox,
+        Checkbutton=DummyCheckbutton,
+        BooleanVar=DummyVar,
+        NORMAL="normal",
+        DISABLED="disabled",
         END="end",
     )
     monkeypatch.setattr(ui, "tk", fake_tk)

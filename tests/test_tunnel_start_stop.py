@@ -78,6 +78,7 @@ def test_start_tunnel_invokes_forwarder(monkeypatch, tmp_path) -> None:
                         for d in tunnel_cfg["dns_names"].split(",")
                         if d.strip()
                     ],
+                    "dns_override": tunnel_cfg.getboolean("dns_override"),
                 }
             ],
         }
@@ -134,6 +135,84 @@ def test_start_tunnel_invokes_forwarder(monkeypatch, tmp_path) -> None:
     assert called["kwargs"] == expected_kwargs
     assert (profile_name, tunnel_name) in app.profile_controller.active_tunnels
     assert hosts_file.read_text() == block_text
+
+
+def test_start_tunnel_skips_hosts_when_disabled(monkeypatch, tmp_path) -> None:
+    cfg = _load_cfg()
+    tunnel_cfg = cfg["dns_disabled_tunnel"]
+    cfg["hosts"]["file"] = str(tmp_path / cfg["hosts"]["file"])
+    app = _make_app(monkeypatch, cfg)
+
+    profile_name = cfg["profile"]["name"]
+    tunnel_name = tunnel_cfg["name"]
+    ssh_key = Path(cfg["profile"]["ssh_dir"]) / cfg["profile"]["ssh_key_filename"]
+    profile_ip = cfg["profile"]["ip"]
+    hosts_file = Path(cfg["hosts"]["file"])
+    hosts_file.write_text("")
+
+    class DummyProfileList:
+        def selection(self):
+            return ("item0",)
+
+        def item(self, _id, option=None, **kwargs):
+            return (profile_name, "")
+
+    class DummyTunnelList:
+        def selection(self):
+            return ("item0",)
+
+        def item(self, _id, option=None, **kwargs):
+            return (tunnel_name, "")
+
+    app.profile_list = DummyProfileList()
+    app.tunnel_list = DummyTunnelList()
+
+    profiles = [
+        {
+            "name": profile_name,
+            "ssh_key": str(ssh_key),
+            "ip": profile_ip,
+            "tunnels": [
+                {
+                    "name": tunnel_name,
+                    "local_port": int(tunnel_cfg["local_port"]),
+                    "remote_host": tunnel_cfg["remote_host"],
+                    "remote_port": int(tunnel_cfg["remote_port"]),
+                    "ssh_host": tunnel_cfg["ssh_host"],
+                    "username": tunnel_cfg["username"],
+                    "ssh_port": int(tunnel_cfg.get("ssh_port", cfg["defaults"].get("ssh_port", 22))),
+                    "dns_names": [
+                        d.strip()
+                        for d in tunnel_cfg["dns_names"].split(",")
+                        if d.strip()
+                    ],
+                    "dns_override": tunnel_cfg.getboolean("dns_override"),
+                }
+            ],
+        }
+    ]
+    monkeypatch.setattr(ui, "load_profiles", lambda: profiles)
+
+    class DummyForwarder:
+        def __init__(self, **kwargs):
+            self.started = False
+
+        def start(self):
+            self.started = True
+
+        @property
+        def is_active(self):
+            return self.started
+
+    monkeypatch.setattr(ui, "SSHTunnelForwarder", DummyForwarder)
+    monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
+    monkeypatch.setattr(ui.messagebox, "showwarning", lambda *a, **k: None)
+
+    app.profile_controller.active_tunnels = {}
+    app._on_start_tunnel()
+
+    assert (profile_name, tunnel_name) in app.profile_controller.active_tunnels
+    assert hosts_file.read_text() == ""
 
 
 def test_stop_tunnel_stops_forwarder(monkeypatch, tmp_path) -> None:

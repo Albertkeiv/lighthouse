@@ -62,13 +62,15 @@ def test_new_tunnel_skips_success_popup(monkeypatch) -> None:
                 int(cfg["tunnel"]["remote_port"]),
                 int(cfg["tunnel"]["ssh_port"]),
                 [d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()],
+                cfg["tunnel"].getboolean("dns_override"),
             )
     monkeypatch.setattr(ui, "TunnelDialog", DummyDialog)
 
-    def _add_tunnel(profile, name, ssh_host, username, local, host, remote, ssh_port, dns, *_, **__):
+    def _add_tunnel(profile, name, ssh_host, username, local, host, remote, ssh_port, dns, dns_override, *_, **__):
         assert dns == [
             d.strip() for d in cfg["tunnel"]["dns_names"].split(",") if d.strip()
         ]
+        assert dns_override is cfg["tunnel"].getboolean("dns_override")
         assert ssh_host == cfg["tunnel"]["ssh_host"]
         assert username == cfg["tunnel"]["username"]
         assert ssh_port == int(cfg["tunnel"]["ssh_port"])
@@ -132,6 +134,7 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
                             for d in cfg["tunnel"]["dns_names"].split(",")
                             if d.strip()
                         ],
+                        "dns_override": cfg["tunnel"].getboolean("dns_override"),
                     }
                 ],
             }
@@ -153,6 +156,7 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
                     for d in cfg["updated_tunnel"]["dns_names"].split(",")
                     if d.strip()
                 ],
+                cfg["updated_tunnel"].getboolean("dns_override"),
             )
     monkeypatch.setattr(ui, "TunnelDialog", DummyDialog)
 
@@ -167,6 +171,7 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
         remote,
         ssh_port,
         dns,
+        dns_override,
         *_,
         **__,
     ):
@@ -175,6 +180,7 @@ def test_edit_tunnel_skips_success_popup(monkeypatch) -> None:
             for d in cfg["updated_tunnel"]["dns_names"].split(",")
             if d.strip()
         ]
+        assert dns_override is cfg["updated_tunnel"].getboolean("dns_override")
         assert ssh_host == cfg["updated_tunnel"]["ssh_host"]
         assert username == cfg["updated_tunnel"]["username"]
         assert ssh_port == int(cfg["updated_tunnel"]["ssh_port"])
