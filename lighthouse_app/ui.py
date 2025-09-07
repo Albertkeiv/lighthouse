@@ -1301,8 +1301,35 @@ class LighthouseApp:
             self._load_tunnels(profile_name)
 
     def _on_profile_double_click(self, event: tk.Event) -> None:  # pragma: no cover - GUI event
-        """Open the profile edit dialog when a profile is double-clicked."""
-        self.logger.info("Profile double-click event")
+        """Open the profile edit dialog when a profile row is double-clicked.
+
+        The handler verifies that the click occurred on a valid row before
+        invoking the edit dialog.  This prevents accidental edits when the user
+        double-clicks an empty area of the profile list.
+        """
+
+        x = getattr(event, "x", None)
+        y = getattr(event, "y", None)
+        btn = getattr(event, "num", None)
+        self.logger.info(
+            "Profile double-click at x=%s y=%s button=%s", x, y, btn
+        )
+
+        try:
+            item_id = event.widget.identify_row(y)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.warning("Failed to identify profile row: %s", exc)
+            return
+
+        if not item_id:
+            self.logger.debug("Double-click ignored: no profile at y=%s", y)
+            return
+
+        try:
+            event.widget.selection_set(item_id)
+        except Exception:  # pragma: no cover - defensive
+            pass
+
         self._on_edit_profile()
 
     def _on_profile_list_configure(self, event: tk.Event) -> None:
@@ -1398,8 +1425,35 @@ class LighthouseApp:
             self.logger.exception("Failed to display tunnel info: %s", exc)
 
     def _on_tunnel_double_click(self, event: tk.Event) -> None:  # pragma: no cover - GUI event
-        """Open the tunnel edit dialog when a tunnel is double-clicked."""
-        self.logger.info("Tunnel double-click event")
+        """Open the tunnel edit dialog when a tunnel row is double-clicked.
+
+        The handler confirms that the user double-clicked an existing tunnel
+        entry.  Double-clicks on empty space are ignored to avoid launching the
+        edit dialog unexpectedly.
+        """
+
+        x = getattr(event, "x", None)
+        y = getattr(event, "y", None)
+        btn = getattr(event, "num", None)
+        self.logger.info(
+            "Tunnel double-click at x=%s y=%s button=%s", x, y, btn
+        )
+
+        try:
+            item_id = event.widget.identify_row(y)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.warning("Failed to identify tunnel row: %s", exc)
+            return
+
+        if not item_id:
+            self.logger.debug("Double-click ignored: no tunnel at y=%s", y)
+            return
+
+        try:
+            event.widget.selection_set(item_id)
+        except Exception:  # pragma: no cover - defensive
+            pass
+
         self._on_edit_tunnel()
 
     def _load_tunnels(self, profile_name: str) -> None:
