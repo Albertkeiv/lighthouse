@@ -832,14 +832,33 @@ class SSHKeyManager:
     """Window for managing SSH keys."""
 
     def __init__(self, parent: tk.Tk, key_controller: KeyController) -> None:
+        """Create the SSH key management window.
+
+        The window size is restored from the configuration file when
+        available.  If no previous size was stored a sensible default is
+        used.  The size is persisted again when the window is closed.
+        """
+
         self.parent = parent
         self.key_controller = key_controller
         self.logger = logging.getLogger(__name__)
+        self.config_file = CONFIG_FILE
+        self.cfg = configparser.ConfigParser()
+        try:
+            self.cfg.read(self.config_file)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to read config file: %s", exc)
+
         self.top = tk.Toplevel(parent)
         self.top.title("SSH Keys")
-        # Make the management window wider for better readability of
-        # key names and their descriptions.
-        self.top.geometry("600x400")
+
+        width = self.cfg.getint("ssh_key_manager", "width", fallback=400)
+        height = self.cfg.getint("ssh_key_manager", "height", fallback=400)
+        self.top.geometry(f"{width}x{height}")
+        self.logger.debug(
+            "SSH key manager window initialised with size %dx%d", width, height
+        )
+        self.top.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self.key_table = ttk.Treeview(
             self.top,
@@ -969,6 +988,28 @@ class SSHKeyManager:
         except Exception as exc:
             self.logger.exception("Failed to delete SSH key: %s", exc)
             messagebox.showerror("Error", str(exc))
+
+    def _on_close(self) -> None:
+        """Persist window size and close the manager."""
+        self.logger.info("SSH key manager window closing")
+        try:
+            width = self.top.winfo_width()
+            height = self.top.winfo_height()
+            if not self.cfg.has_section("ssh_key_manager"):
+                self.cfg.add_section("ssh_key_manager")
+            self.cfg.set("ssh_key_manager", "width", str(width))
+            self.cfg.set("ssh_key_manager", "height", str(height))
+            with self.config_file.open("w", encoding="utf-8") as configfile:
+                self.cfg.write(configfile)
+            self.logger.debug(
+                "Saved SSH key manager size %dx%d", width, height
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception(
+                "Failed to save SSH key manager size: %s", exc
+            )
+        finally:
+            self.top.destroy()
 
 class LighthouseApp:
     """Graphical interface for managing profiles and tunnels.
