@@ -57,6 +57,8 @@ def test_manager_uses_table_and_double_click(monkeypatch) -> None:
             pass
         def geometry(self, geom):
             geometry_calls.append(geom)
+        def protocol(self, name, func):
+            pass
 
     fake_tk = SimpleNamespace(
         Toplevel=DummyToplevel,
@@ -132,6 +134,10 @@ def test_add_key_skips_success_popup(monkeypatch) -> None:
         def title(self, *_, **__):
             pass
         def geometry(self, *_, **__):
+            pass
+        def protocol(self, *_, **__):
+            pass
+        def protocol(self, *_, **__):
             pass
 
     fake_tk = SimpleNamespace(
@@ -215,6 +221,8 @@ def test_edit_key_skips_success_popup(monkeypatch) -> None:
         def title(self, *_, **__):
             pass
         def geometry(self, *_, **__):
+            pass
+        def protocol(self, *_, **__):
             pass
 
     fake_tk = SimpleNamespace(
