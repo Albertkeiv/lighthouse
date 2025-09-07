@@ -1235,8 +1235,14 @@ class LighthouseApp:
         self.status_text = tk.Text(self.status_frame, height=10)
         self.status_text.grid(row=0, column=0, sticky="nsew")
 
-        self.log_text = tk.Text(info_frame, height=8, state="disabled")
-        self.log_text.grid(row=1, column=0, sticky="nsew")
+        # Container displaying application logs
+        self.log_frame = tk.LabelFrame(info_frame, text="Log")
+        self.log_frame.grid(row=1, column=0, sticky="nsew")
+        self.log_frame.rowconfigure(0, weight=1)
+        self.log_frame.columnconfigure(0, weight=1)
+
+        self.log_text = tk.Text(self.log_frame, height=8, state="disabled")
+        self.log_text.grid(row=0, column=0, sticky="nsew")
         # Frame to hold bottom action buttons side by side
         button_frame = tk.Frame(info_frame)
         button_frame.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
