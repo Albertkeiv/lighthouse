@@ -1174,24 +1174,34 @@ class LighthouseApp:
         # Load profiles once widgets are ready so highlight updates succeed
         self._load_profiles_into_list()
 
+        # Group tunnel controls for clearer separation of management and actions
+        button_container = tk.Frame(tunnel_frame)
+        button_container.pack(fill="x")
+
+        manage_frame = tk.LabelFrame(button_container, text="Manage Tunnels")
+        manage_frame.pack(side="left", fill="both", expand=True)
+
+        action_frame = tk.LabelFrame(button_container, text="Tunnel Actions")
+        action_frame.pack(side="left", fill="both", expand=True)
+
         new_tunnel_btn = tk.Button(
-            tunnel_frame, text="New Tunnel", command=self._on_new_tunnel
+            manage_frame, text="New Tunnel", command=self._on_new_tunnel
         )
         new_tunnel_btn.pack(fill="x")
         edit_tunnel_btn = tk.Button(
-            tunnel_frame, text="Edit Tunnel", command=self._on_edit_tunnel
+            manage_frame, text="Edit Tunnel", command=self._on_edit_tunnel
         )
         edit_tunnel_btn.pack(fill="x")
         delete_tunnel_btn = tk.Button(
-            tunnel_frame, text="Delete Tunnel", command=self._on_delete_tunnel
+            manage_frame, text="Delete Tunnel", command=self._on_delete_tunnel
         )
         delete_tunnel_btn.pack(fill="x")
         start_tunnel_btn = tk.Button(
-            tunnel_frame, text="Start Tunnel", command=self._on_start_tunnel
+            action_frame, text="Start Tunnel", command=self._on_start_tunnel
         )
         start_tunnel_btn.pack(fill="x")
         stop_tunnel_btn = tk.Button(
-            tunnel_frame, text="Stop Tunnel", command=self._on_stop_tunnel
+            action_frame, text="Stop Tunnel", command=self._on_stop_tunnel
         )
         stop_tunnel_btn.pack(fill="x")
 
