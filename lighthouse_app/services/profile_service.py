@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from sshtunnel import SSHTunnelForwarder
 
-from ..hosts import add_hosts_block, remove_hosts_block, default_hosts_file
+from ..hosts import HOSTS_FILE, add_hosts_block, remove_hosts_block
 from ..profiles import (
     PROFILES_FILE,
     _allocate_ip,
@@ -17,18 +17,17 @@ class ProfileService:
     """Service layer encapsulating profile and tunnel operations."""
 
     def __init__(self, hosts_file: Optional[Union[str, Path]] = None) -> None:
-        """Create the service using a platform specific hosts file.
+        """Create the service using a configurable hosts file.
 
         Parameters
         ----------
         hosts_file: str | Path | None
             Optional explicit path to the hosts file.  When ``None`` the
-            system specific default from :func:`lighthouse_app.hosts.default_hosts_file`
-            is used.
+            default from :data:`lighthouse_app.hosts.HOSTS_FILE` is used.
         """
 
         if hosts_file is None:
-            self.hosts_file = default_hosts_file()
+            self.hosts_file = HOSTS_FILE
         else:
             self.hosts_file = Path(hosts_file)
         # Track running tunnels; keys are ``(profile_name, tunnel_name)`` tuples

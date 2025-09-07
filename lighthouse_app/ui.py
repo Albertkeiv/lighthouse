@@ -12,11 +12,7 @@ from sshtunnel import SSHTunnelForwarder, DEFAULT_SSH_DIRECTORY
 
 _ORIGINAL_FORWARDER = SSHTunnelForwarder
 
-from lighthouse_app.hosts import (
-    add_hosts_block,
-    remove_hosts_block,
-    default_hosts_file,
-)
+from lighthouse_app.hosts import HOSTS_FILE, add_hosts_block, remove_hosts_block
 from lighthouse_app.profiles import PROFILES_FILE, load_profiles as _load_profiles
 
 
@@ -979,7 +975,11 @@ class LighthouseApp:
     """
 
     def __init__(self, root: tk.Tk, cfg: configparser.ConfigParser) -> None:
-        """Create the application and build the UI if Tk widgets are available."""
+        """Create the application and build the UI.
+
+        The hosts file path is read from ``cfg`` with a fallback to
+        :data:`lighthouse_app.hosts.HOSTS_FILE`.
+        """
         import builtins
 
         # Expose the root object for tests that reference it directly
@@ -988,9 +988,7 @@ class LighthouseApp:
         self.root = root
         self.cfg = cfg
         self.logger = logging.getLogger(__name__)
-        hosts_path = self.cfg.get(
-            "hosts", "file", fallback=str(default_hosts_file())
-        )
+        hosts_path = self.cfg.get("hosts", "file", fallback=str(HOSTS_FILE))
         self.hosts_file = Path(hosts_path)
         self.logger.debug("Hosts file set to %s", self.hosts_file)
         self.profile_controller = ProfileController(self.hosts_file)

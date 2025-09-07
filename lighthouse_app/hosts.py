@@ -1,38 +1,37 @@
 """Utilities for updating the system hosts file.
 
-The module also exposes a helper for resolving the default hosts file path
-depending on the operating system.  This keeps OS specific logic in a single
-place and allows other parts of the application to simply call
-``default_hosts_file`` when they need the location of the hosts file.
+The module defines :data:`HOSTS_FILE` pointing to the default hosts file used
+by the application.  Helper functions operate on this path by default but allow
+an explicit file to be supplied for tests.
 """
 
 import logging
-import platform
 from pathlib import Path
 from typing import List, Union
 
-
-def default_hosts_file() -> Path:
-    """Return the platform specific hosts file path.
-
-    Windows stores the file in the system directory while Unix like systems
-    use ``/etc/hosts``.  The function intentionally falls back to the Unix
-    path for unknown systems so that behaviour is predictable.
-    """
-
-    system = platform.system().lower()
-    if system == "windows":
-        return Path(r"C:\Windows\System32\drivers\etc\hosts")
-    return Path("/etc/hosts")
+HOSTS_FILE = Path(r"C:\Windows\System32\drivers\etc\hosts")
 
 def add_hosts_block(
     profile_name: str,
     ip: str,
     dns_names: List[str],
-    hosts_file: Union[str, Path],
-    logger: logging.Logger,
+    hosts_file: Union[str, Path] = HOSTS_FILE,
+    logger: logging.Logger = logging.getLogger(__name__),
 ) -> None:
     """Add managed block with DNS records to hosts file.
+
+    Parameters
+    ----------
+    profile_name: str
+        Name of the profile associated with the records.
+    ip: str
+        IP address written to the hosts file.
+    dns_names: list[str]
+        DNS names to map to ``ip``.
+    hosts_file: str | Path, optional
+        Path to the hosts file. Defaults to :data:`HOSTS_FILE`.
+    logger: logging.Logger, optional
+        Logger used for debug output.
 
     Existing block for the profile is replaced. If ``dns_names`` is empty
     the function simply returns without touching the file.
@@ -61,10 +60,20 @@ def add_hosts_block(
 
 def remove_hosts_block(
     profile_name: str,
-    hosts_file: Union[str, Path],
-    logger: logging.Logger,
+    hosts_file: Union[str, Path] = HOSTS_FILE,
+    logger: logging.Logger = logging.getLogger(__name__),
 ) -> None:
-    """Remove managed block for the given profile from hosts file."""
+    """Remove managed block for the given profile from hosts file.
+
+    Parameters
+    ----------
+    profile_name: str
+        Profile whose entries should be removed.
+    hosts_file: str | Path, optional
+        Path to the hosts file. Defaults to :data:`HOSTS_FILE`.
+    logger: logging.Logger, optional
+        Logger used for debug information.
+    """
     path = Path(hosts_file)
     if not path.exists():
         logger.info("Hosts file %s not found; nothing to remove", path)
