@@ -15,6 +15,9 @@ _ORIGINAL_FORWARDER = SSHTunnelForwarder
 from lighthouse_app.hosts import HOSTS_FILE, add_hosts_block, remove_hosts_block
 from lighthouse_app.profiles import PROFILES_FILE, load_profiles as _load_profiles
 
+# Default path to the application configuration file
+CONFIG_FILE = Path("config.ini")
+
 
 def load_profiles(file_path: Union[str, Path] = PROFILES_FILE) -> List[Dict[str, str]]:
     """Load profile definitions for the UI layer.
@@ -993,6 +996,7 @@ class LighthouseApp:
         self.logger.debug("Hosts file set to %s", self.hosts_file)
         self.profile_controller = ProfileController(self.hosts_file)
         self.key_controller = KeyController()
+        self.config_file = CONFIG_FILE
 
         # Keep a reference to the previous instance so that subsequent
         # constructions in tests can reuse injected dummy widgets.
@@ -1010,6 +1014,12 @@ class LighthouseApp:
             self.profile_list = getattr(prev_app, "profile_list", None)
             self.tunnel_list = getattr(prev_app, "tunnel_list", None)
             self.status_text = getattr(prev_app, "status_text", None)
+
+        if hasattr(self.root, "protocol"):
+            try:
+                self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+            except Exception as exc:  # pragma: no cover - defensive
+                self.logger.exception("Failed to set close handler: %s", exc)
 
         # Remember this instance for potential reuse on subsequent
         # constructions within the test suite.
@@ -1078,6 +1088,15 @@ class LighthouseApp:
         if hasattr(self.root, "resizable"):
             self.root.resizable(True, True)
             self.logger.debug("Main window resize enabled")
+
+        # Enforce a configurable minimum size without altering current geometry
+        if hasattr(self.root, "minsize"):
+            min_w = self.cfg.getint("ui", "min_width", fallback=200)
+            min_h = self.cfg.getint("ui", "min_height", fallback=200)
+            self.root.minsize(min_w, min_h)
+            self.logger.debug(
+                "Main window minimum size set to %dx%d", min_w, min_h
+            )
 
         # Configure grid for the main window. Only one row and column are
         # required because all control buttons now live inside their
@@ -1217,34 +1236,6 @@ class LighthouseApp:
             button_frame, text="Settings", command=self._on_settings
         )
         self.settings_btn.grid(row=0, column=1, sticky="ew")
-
-        # Ensure the main window fits its widgets while allowing reduction to a
-        # configurable minimum size
-        if hasattr(self.root, "update_idletasks"):
-            self.root.update_idletasks()
-            if all(
-                hasattr(self.root, attr)
-                for attr in ["winfo_reqwidth", "winfo_reqheight", "winfo_width", "winfo_height"]
-            ):
-                req_w = self.root.winfo_reqwidth()
-                req_h = self.root.winfo_reqheight()
-                cur_w = self.root.winfo_width()
-                cur_h = self.root.winfo_height()
-                min_w = self.cfg.getint("ui", "min_width", fallback=200)
-                min_h = self.cfg.getint("ui", "min_height", fallback=200)
-                width = max(cur_w, req_w, min_w)
-                height = max(cur_h, req_h, min_h)
-                if hasattr(self.root, "geometry"):
-                    self.root.geometry(f"{width}x{height}")
-                if hasattr(self.root, "minsize"):
-                    self.root.minsize(min_w, min_h)
-                self.logger.debug(
-                    "Main window geometry enforced to %dx%d with minimum %dx%d",
-                    width,
-                    height,
-                    min_w,
-                    min_h,
-                )
 
     def _restore_pane_layout(self) -> None:
         """Apply saved pane positions if available."""
@@ -1854,6 +1845,29 @@ class LighthouseApp:
             # Saving failures are ignored to avoid disrupting the app
             pass
 
+    def _on_close(self) -> None:
+        """Save window geometry and close the application safely."""
+        self.logger.info("Application closing")
+        try:
+            width = (
+                self.root.winfo_width() if hasattr(self.root, "winfo_width") else self.cfg.getint("ui", "width", fallback=800)
+            )
+            height = (
+                self.root.winfo_height() if hasattr(self.root, "winfo_height") else self.cfg.getint("ui", "height", fallback=600)
+            )
+            if not self.cfg.has_section("ui"):
+                self.cfg.add_section("ui")
+            self.cfg.set("ui", "width", str(width))
+            self.cfg.set("ui", "height", str(height))
+            with self.config_file.open("w", encoding="utf-8") as configfile:
+                self.cfg.write(configfile)
+            self.logger.debug("Saved window size %dx%d", width, height)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to save window size: %s", exc)
+        finally:
+            if hasattr(self.root, "destroy"):
+                self.root.destroy()
+
     def run(self) -> None:
         """Run the Tkinter main event loop."""
         self.logger.info("Lighthouse started")
@@ -1869,7 +1883,7 @@ def main() -> None:
     """Entry point for running the application."""
     cfg = configparser.ConfigParser()
     try:
-        cfg.read('config.ini')
+        cfg.read(CONFIG_FILE)
     except Exception as exc:  # pragma: no cover - difficult to trigger
         print(f"Failed to read configuration: {exc}")
         return

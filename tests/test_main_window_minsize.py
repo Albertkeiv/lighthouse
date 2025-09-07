@@ -35,21 +35,6 @@ def test_main_window_minsize(monkeypatch):
         def after(self, *a, **k):
             pass
 
-        def update_idletasks(self):
-            pass
-
-        def winfo_reqwidth(self):
-            return expected_w
-
-        def winfo_reqheight(self):
-            return expected_h
-
-        def winfo_width(self):
-            return expected_w - 50
-
-        def winfo_height(self):
-            return expected_h - 50
-
         def geometry(self, value):
             self.geometry_called = value
 
@@ -135,5 +120,5 @@ def test_main_window_minsize(monkeypatch):
     ui.LighthouseApp(root, cfg)
 
     assert root.minsize_called == (expected_w, expected_h)
-    assert root.geometry_called == f"{expected_w}x{expected_h}"
+    assert root.geometry_called is None
 
