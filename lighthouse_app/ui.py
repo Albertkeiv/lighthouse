@@ -1135,24 +1135,36 @@ class LighthouseApp:
         self.profile_list.bind("<Double-1>", self._on_profile_double_click)
         # Adjust column widths whenever the widget size changes
         self.profile_list.bind("<Configure>", self._on_profile_list_configure)
+
+        # Group profile controls similarly to tunnel controls to separate
+        # management buttons from action buttons.
+        button_container = tk.Frame(profile_frame)
+        button_container.pack(fill="x")
+
+        manage_frame = tk.LabelFrame(button_container, text="Manage Profiles")
+        manage_frame.pack(side="left", fill="both", expand=True)
+
+        action_frame = tk.LabelFrame(button_container, text="Profile Actions")
+        action_frame.pack(side="left", fill="both", expand=True)
+
         new_profile_btn = tk.Button(
-            profile_frame, text="New Profile", command=self._on_new_profile
+            manage_frame, text="New Profile", command=self._on_new_profile
         )
         new_profile_btn.pack(fill="x")
         edit_btn = tk.Button(
-            profile_frame, text="Edit Profile", command=self._on_edit_profile
+            manage_frame, text="Edit Profile", command=self._on_edit_profile
         )
         edit_btn.pack(fill="x")
         delete_btn = tk.Button(
-            profile_frame, text="Delete Profile", command=self._on_delete_profile
+            manage_frame, text="Delete Profile", command=self._on_delete_profile
         )
         delete_btn.pack(fill="x")
         start_profile_btn = tk.Button(
-            profile_frame, text="Start Profile", command=self._on_start_profile
+            action_frame, text="Start Profile", command=self._on_start_profile
         )
         start_profile_btn.pack(fill="x")
         stop_profile_btn = tk.Button(
-            profile_frame, text="Stop Profile", command=self._on_stop_profile
+            action_frame, text="Stop Profile", command=self._on_stop_profile
         )
         stop_profile_btn.pack(fill="x")
 
