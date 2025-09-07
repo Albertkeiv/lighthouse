@@ -1311,25 +1311,27 @@ class LighthouseApp:
         x = getattr(event, "x", None)
         y = getattr(event, "y", None)
         btn = getattr(event, "num", None)
+        tree = event.widget
         self.logger.info(
             "Profile double-click at x=%s y=%s button=%s", x, y, btn
         )
 
         try:
-            item_id = event.widget.identify_row(y)
+            item_id = tree.focus()
         except Exception as exc:  # pragma: no cover - defensive
-            self.logger.warning("Failed to identify profile row: %s", exc)
+            self.logger.warning("Failed to obtain focused profile: %s", exc)
             return
 
         if not item_id:
-            self.logger.debug("Double-click ignored: no profile at y=%s", y)
+            self.logger.debug("Double-click ignored: no profile selected")
             return
 
-        try:
-            event.widget.selection_set(item_id)
+        try:  # Ensure selection reflects focused item for consistency
+            tree.selection_set(item_id)
         except Exception:  # pragma: no cover - defensive
             pass
 
+        self.logger.info("Editing profile id=%s", item_id)
         self._on_edit_profile()
 
     def _on_profile_list_configure(self, event: tk.Event) -> None:
@@ -1435,25 +1437,27 @@ class LighthouseApp:
         x = getattr(event, "x", None)
         y = getattr(event, "y", None)
         btn = getattr(event, "num", None)
+        tree = event.widget
         self.logger.info(
             "Tunnel double-click at x=%s y=%s button=%s", x, y, btn
         )
 
         try:
-            item_id = event.widget.identify_row(y)
+            item_id = tree.focus()
         except Exception as exc:  # pragma: no cover - defensive
-            self.logger.warning("Failed to identify tunnel row: %s", exc)
+            self.logger.warning("Failed to obtain focused tunnel: %s", exc)
             return
 
         if not item_id:
-            self.logger.debug("Double-click ignored: no tunnel at y=%s", y)
+            self.logger.debug("Double-click ignored: no tunnel selected")
             return
 
-        try:
-            event.widget.selection_set(item_id)
+        try:  # Keep selection in sync with focus
+            tree.selection_set(item_id)
         except Exception:  # pragma: no cover - defensive
             pass
 
+        self.logger.info("Editing tunnel id=%s", item_id)
         self._on_edit_tunnel()
 
     def _load_tunnels(self, profile_name: str) -> None:
