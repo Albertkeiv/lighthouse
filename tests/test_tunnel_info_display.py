@@ -73,7 +73,8 @@ def test_tunnel_selection_updates_status(monkeypatch) -> None:
         {
             "name": cfg["profile"]["name"],
             "ip": cfg["profile"]["ip"],
-            "ssh_key": f"{cfg['profile']['ssh_dir']}/{cfg['profile']['ssh_key_filename']}",
+            # Формируем путь к ключу через Path, чтобы поддерживать Windows-пути
+            "ssh_key": str(Path(cfg["profile"]["ssh_dir"]) / cfg["profile"]["ssh_key_filename"]),
             "tunnels": [
                 {
                     "name": cfg["tunnel"]["name"],
