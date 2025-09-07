@@ -44,3 +44,25 @@ def test_load_profiles_delegates_to_service(monkeypatch):
     result = controller.load_profiles()
     assert result == expected
     assert called["file_path"] == PROFILES_FILE
+
+
+def test_start_stop_profile_delegates_to_service(monkeypatch):
+    cfg = _load_cfg()
+    controller = ProfileController()
+    name = cfg["profile1"]["name"]
+    called = {}
+
+    def fake_start(profile_name, file_path=PROFILES_FILE, profiles=None, forwarder_cls=None):
+        called["start"] = (profile_name, file_path)
+
+    def fake_stop(profile_name):
+        called["stop"] = profile_name
+
+    monkeypatch.setattr(controller.service, "start_profile", fake_start)
+    monkeypatch.setattr(controller.service, "stop_profile", fake_stop)
+
+    controller.start_profile(name)
+    controller.stop_profile(name)
+
+    assert called["start"] == (name, PROFILES_FILE)
+    assert called["stop"] == name

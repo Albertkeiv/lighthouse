@@ -1147,6 +1147,14 @@ class LighthouseApp:
             profile_frame, text="Delete Profile", command=self._on_delete_profile
         )
         delete_btn.pack(fill="x")
+        start_profile_btn = tk.Button(
+            profile_frame, text="Start Profile", command=self._on_start_profile
+        )
+        start_profile_btn.pack(fill="x")
+        stop_profile_btn = tk.Button(
+            profile_frame, text="Stop Profile", command=self._on_stop_profile
+        )
+        stop_profile_btn.pack(fill="x")
 
         # Tunnels list displayed inside its own labeled frame
         tunnel_frame = tk.LabelFrame(
@@ -1542,6 +1550,58 @@ class LighthouseApp:
                 self.logger.warning("Profile '%s' not found during deletion", name)
         except Exception as exc:
             self.logger.exception("Failed to delete profile: %s", exc)
+            messagebox.showerror("Error", str(exc))
+
+    def _on_start_profile(self) -> None:
+        """Start all tunnels for the selected profile."""
+        self.logger.info("Profile start requested")
+        selection = self.profile_list.selection()
+        if not selection:
+            messagebox.showwarning(
+                "No profile", "Please select a profile to start.",
+            )
+            self.logger.info("Profile start cancelled: no profile selected")
+            return
+        profile_name = self.profile_list.item(selection[0], "values")[0]
+        try:
+            profiles = load_profiles()
+            if not any(p.get("name") == profile_name for p in profiles):
+                profiles = self.profile_controller.load_profiles()
+            import lighthouse_app.services.profile_service as ps
+
+            forwarder_cls = SSHTunnelForwarder
+            if getattr(ps, "SSHTunnelForwarder", _ORIGINAL_FORWARDER) is not _ORIGINAL_FORWARDER:
+                forwarder_cls = ps.SSHTunnelForwarder
+            elif SSHTunnelForwarder is not _ORIGINAL_FORWARDER:
+                forwarder_cls = SSHTunnelForwarder
+            self.profile_controller.start_profile(
+                profile_name, profiles=profiles, forwarder_cls=forwarder_cls
+            )
+            self.logger.info("Profile '%s' started", profile_name)
+            self._append_log(f"Started profile '{profile_name}'")
+            self._update_highlights()
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to start profile: %s", exc)
+            messagebox.showerror("Error", str(exc))
+
+    def _on_stop_profile(self) -> None:
+        """Stop all running tunnels for the selected profile."""
+        self.logger.info("Profile stop requested")
+        selection = self.profile_list.selection()
+        if not selection:
+            messagebox.showwarning(
+                "No profile", "Please select a profile to stop.",
+            )
+            self.logger.info("Profile stop cancelled: no profile selected")
+            return
+        profile_name = self.profile_list.item(selection[0], "values")[0]
+        try:
+            self.profile_controller.stop_profile(profile_name)
+            self.logger.info("Profile '%s' stopped", profile_name)
+            self._append_log(f"Stopped profile '{profile_name}'")
+            self._update_highlights()
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.exception("Failed to stop profile: %s", exc)
             messagebox.showerror("Error", str(exc))
 
     def _on_new_tunnel(self) -> None:

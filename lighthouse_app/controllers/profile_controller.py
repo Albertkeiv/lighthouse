@@ -149,3 +149,19 @@ class ProfileController:
 
     def is_tunnel_active(self, profile_name: str, tunnel_name: str) -> bool:
         return self.service.is_tunnel_active(profile_name, tunnel_name)
+
+    def start_profile(
+        self,
+        profile_name: str,
+        file_path: Union[str, Path] = PROFILES_FILE,
+        profiles: Optional[List[Dict[str, str]]] = None,
+        forwarder_cls: type[SSHTunnelForwarder] = SSHTunnelForwarder,
+    ) -> None:
+        """Start all tunnels associated with the given profile."""
+        if profiles is None:
+            profiles = self.load_profiles(file_path)
+        self.service.start_profile(profile_name, file_path, profiles, forwarder_cls)
+
+    def stop_profile(self, profile_name: str) -> None:
+        """Stop all running tunnels for the given profile."""
+        self.service.stop_profile(profile_name)
