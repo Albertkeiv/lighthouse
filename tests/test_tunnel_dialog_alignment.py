@@ -106,8 +106,10 @@ def test_tunnel_dialog_alignment(monkeypatch) -> None:
     class DummyForwarder:
         pass
 
+    # Use the user's home directory to emulate the default SSH key location
     fake_sshtunnel = SimpleNamespace(
-        SSHTunnelForwarder=DummyForwarder, DEFAULT_SSH_DIRECTORY="~/.ssh"
+        SSHTunnelForwarder=DummyForwarder,
+        DEFAULT_SSH_DIRECTORY=str(Path.home() / ".ssh"),
     )
     monkeypatch.setitem(sys.modules, "sshtunnel", fake_sshtunnel)
 
