@@ -25,6 +25,7 @@ def test_tunnel_list_double_click_triggers_edit(monkeypatch) -> None:
         def __init__(self, *_, **__):
             self.bindings = {}
             self._selected = ()
+            self._focus = ""
 
         def pack(self, *_, **__):
             pass
@@ -44,8 +45,8 @@ def test_tunnel_list_double_click_triggers_edit(monkeypatch) -> None:
         def selection_set(self, item_id):
             self._selected = (item_id,)
 
-        def identify_row(self, y):
-            return "item0" if y == 1 else ""
+        def focus(self):
+            return self._focus
 
         def item(self, *_, **__):
             return ()
@@ -115,9 +116,11 @@ def test_tunnel_list_double_click_triggers_edit(monkeypatch) -> None:
     event_name = cfg["events"]["double_click"]
     assert event_name in app.tunnel_list.bindings
     event = SimpleNamespace(widget=app.tunnel_list, x=0, y=1, num=1)
+    app.tunnel_list._focus = "item0"
     app.tunnel_list.bindings[event_name](event)
     assert calls
 
     event_blank = SimpleNamespace(widget=app.tunnel_list, x=0, y=99, num=1)
+    app.tunnel_list._focus = ""
     app.tunnel_list.bindings[event_name](event_blank)
     assert len(calls) == 1

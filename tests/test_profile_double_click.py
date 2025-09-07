@@ -26,6 +26,7 @@ def test_profile_list_double_click_triggers_edit(monkeypatch) -> None:
             self.bindings = {}
             self.columns = {}
             self._selected = ("item0",)
+            self._focus = "item0"
 
         def pack(self, *_, **__):
             pass
@@ -47,8 +48,8 @@ def test_profile_list_double_click_triggers_edit(monkeypatch) -> None:
         def selection_set(self, item_id):
             self._selected = (item_id,)
 
-        def identify_row(self, y):
-            return "item0" if y == 1 else ""
+        def focus(self):
+            return self._focus
 
         def item(self, item_id, option=None):
             return ("profile", "127.0.0.1")
@@ -119,9 +120,11 @@ def test_profile_list_double_click_triggers_edit(monkeypatch) -> None:
     event_name = cfg["events"]["double_click"]
     assert event_name in app.profile_list.bindings
     event = SimpleNamespace(widget=app.profile_list, x=0, y=1, num=1)
+    app.profile_list._focus = "item0"
     app.profile_list.bindings[event_name](event)
     assert calls
 
     event_blank = SimpleNamespace(widget=app.profile_list, x=0, y=99, num=1)
+    app.profile_list._focus = ""
     app.profile_list.bindings[event_name](event_blank)
     assert len(calls) == 1
