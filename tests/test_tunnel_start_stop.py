@@ -270,6 +270,7 @@ def test_stop_tunnel_stops_forwarder(monkeypatch, tmp_path) -> None:
 
     fwd = DummyForwarder()
     app.profile_controller.active_tunnels = {(profile_name, tunnel_name): fwd}
+    app.profile_controller.service.dns_overrides[(profile_name, tunnel_name)] = True
 
     monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
     monkeypatch.setattr(ui.messagebox, "showwarning", lambda *a, **k: None)
@@ -279,4 +280,60 @@ def test_stop_tunnel_stops_forwarder(monkeypatch, tmp_path) -> None:
     assert fwd.stopped is True
     assert (profile_name, tunnel_name) not in app.profile_controller.active_tunnels
     assert hosts_file.read_text() == ""
+
+
+def test_stop_tunnel_skips_hosts_when_disabled(monkeypatch, tmp_path) -> None:
+    cfg = _load_cfg()
+    tunnel_cfg = cfg["dns_disabled_tunnel"]
+    cfg["hosts"]["file"] = str(tmp_path / cfg["hosts"]["file"])
+    app = _make_app(monkeypatch, cfg)
+
+    profile_name = cfg["profile"]["name"]
+    tunnel_name = tunnel_cfg["name"]
+    hosts_file = Path(cfg["hosts"]["file"])
+    original = "preserve"
+    hosts_file.write_text(original)
+
+    class DummyProfileList:
+        def selection(self):
+            return ("item0",)
+
+        def item(self, _id, option=None, **kwargs):
+            return (profile_name, "")
+
+    class DummyTunnelList:
+        def selection(self):
+            return ("item0",)
+
+        def item(self, _id, option=None, **kwargs):
+            return (tunnel_name, "")
+
+    app.profile_list = DummyProfileList()
+    app.tunnel_list = DummyTunnelList()
+
+    class DummyForwarder:
+        def __init__(self):
+            self.stopped = False
+            self._active = True
+
+        def stop(self):
+            self.stopped = True
+            self._active = False
+
+        @property
+        def is_active(self):
+            return self._active
+
+    fwd = DummyForwarder()
+    app.profile_controller.active_tunnels = {(profile_name, tunnel_name): fwd}
+    app.profile_controller.service.dns_overrides[(profile_name, tunnel_name)] = False
+
+    monkeypatch.setattr(ui.messagebox, "showerror", lambda *a, **k: None)
+    monkeypatch.setattr(ui.messagebox, "showwarning", lambda *a, **k: None)
+
+    app._on_stop_tunnel()
+
+    assert fwd.stopped is True
+    assert (profile_name, tunnel_name) not in app.profile_controller.active_tunnels
+    assert hosts_file.read_text() == original
 

@@ -32,6 +32,9 @@ class ProfileService:
             self.hosts_file = Path(hosts_file)
         # Track running tunnels; keys are ``(profile_name, tunnel_name)`` tuples
         self.active_tunnels: Dict[Tuple[str, str], SSHTunnelForwarder] = {}
+        # Remember whether DNS override was enabled when starting each tunnel
+        # to ensure hosts file is only modified when explicitly requested.
+        self.dns_overrides: Dict[Tuple[str, str], bool] = {}
         self.logger = logging.getLogger(__name__)
         self.logger.debug("Using hosts file %s", self.hosts_file)
 
@@ -307,7 +310,9 @@ class ProfileService:
         )
         forwarder.start()
         self.active_tunnels[key] = forwarder
-        if tunnel.get("dns_override", True):
+        dns_override = bool(tunnel.get("dns_override", True))
+        self.dns_overrides[key] = dns_override
+        if dns_override:
             add_hosts_block(
                 profile_name,
                 bind_ip,
@@ -331,7 +336,14 @@ class ProfileService:
             raise RuntimeError(f"Tunnel '{tunnel_name}' is not running")
         forwarder.stop()
         del self.active_tunnels[key]
-        remove_hosts_block(profile_name, self.hosts_file, self.logger)
+        dns_override = self.dns_overrides.pop(key, False)
+        if dns_override:
+            remove_hosts_block(profile_name, self.hosts_file, self.logger)
+        else:
+            self.logger.info(
+                "DNS override disabled for tunnel '%s'; skipping hosts cleanup",
+                tunnel_name,
+            )
         self.logger.info(
             "Stopped tunnel '%s' for profile '%s'", tunnel_name, profile_name
         )
@@ -394,9 +406,5 @@ class ProfileService:
         if not to_stop:
             raise RuntimeError(f"No tunnels running for profile '{profile_name}'")
         for key in to_stop:
-            forwarder = self.active_tunnels.get(key)
-            if forwarder and forwarder.is_active:
-                forwarder.stop()
-            del self.active_tunnels[key]
-        remove_hosts_block(profile_name, self.hosts_file, self.logger)
+            self.stop_tunnel(*key)
         self.logger.info("Stopped profile '%s'", profile_name)
