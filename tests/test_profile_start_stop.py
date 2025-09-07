@@ -89,3 +89,66 @@ def test_start_stop_profile(monkeypatch, tmp_path) -> None:
     controller.stop_profile(profile_name)
     assert controller.active_tunnels == {}
     assert hosts_file.read_text() == ""
+
+
+def test_start_stop_profile_skips_hosts_when_dns_disabled(monkeypatch, tmp_path) -> None:
+    cfg = _load_cfg()
+    profile_name = cfg["profile"]["name"]
+    tunnel_cfg = cfg["dns_disabled_tunnel"]
+    hosts_file = tmp_path / cfg["hosts"]["file"]
+    hosts_file.write_text("")
+    ssh_key = Path(cfg["profile"]["ssh_dir"]) / cfg["profile"]["ssh_key_filename"]
+    profile_ip = cfg["profile"]["ip"]
+    profiles = [
+        {
+            "name": profile_name,
+            "ssh_key": str(ssh_key),
+            "ip": profile_ip,
+            "tunnels": [
+                {
+                    "name": tunnel_cfg["name"],
+                    "local_port": int(tunnel_cfg["local_port"]),
+                    "remote_host": tunnel_cfg["remote_host"],
+                    "remote_port": int(tunnel_cfg["remote_port"]),
+                    "ssh_host": tunnel_cfg["ssh_host"],
+                    "username": tunnel_cfg["username"],
+                    "ssh_port": int(tunnel_cfg.get("ssh_port", cfg["defaults"].get("ssh_port", 22))),
+                    "dns_names": [
+                        d.strip()
+                        for d in tunnel_cfg["dns_names"].split(",")
+                        if d.strip()
+                    ],
+                    "dns_override": tunnel_cfg.getboolean("dns_override"),
+                }
+            ],
+        }
+    ]
+
+    controller = ProfileController(hosts_file=hosts_file)
+
+    class DummyForwarder:
+        def __init__(self, **kwargs):
+            self.active = False
+
+        def start(self):
+            self.active = True
+
+        def stop(self):
+            self.active = False
+
+        @property
+        def is_active(self):
+            return self.active
+
+    controller.start_profile(
+        profile_name,
+        profiles=profiles,
+        forwarder_cls=DummyForwarder,
+    )
+
+    assert (profile_name, tunnel_cfg["name"]) in controller.active_tunnels
+    assert hosts_file.read_text() == ""
+
+    controller.stop_profile(profile_name)
+    assert controller.active_tunnels == {}
+    assert hosts_file.read_text() == ""
