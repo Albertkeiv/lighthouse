@@ -339,3 +339,64 @@ class ProfileService:
     def is_tunnel_active(self, profile_name: str, tunnel_name: str) -> bool:
         forwarder = self.active_tunnels.get((profile_name, tunnel_name))
         return bool(forwarder and forwarder.is_active)
+
+    # ------------------------------------------------------------------
+    # Profile lifecycle operations
+    # ------------------------------------------------------------------
+    def start_profile(
+        self,
+        profile_name: str,
+        file_path: Union[str, Path] = PROFILES_FILE,
+        profiles: Optional[List[Dict[str, str]]] = None,
+        forwarder_cls: type[SSHTunnelForwarder] = SSHTunnelForwarder,
+    ) -> None:
+        """Start all tunnels defined for a profile."""
+        if profiles is None:
+            profiles = self.load_profiles(file_path)
+        profile = next((p for p in profiles if p.get("name") == profile_name), None)
+        if profile is None:
+            raise ValueError(f"Profile '{profile_name}' not found")
+        tunnels = profile.get("tunnels", [])
+        if not tunnels:
+            raise ValueError(f"No tunnels configured for profile '{profile_name}'")
+        all_dns: List[str] = []
+        for tunnel in tunnels:
+            t_name = tunnel.get("name")
+            if self.is_tunnel_active(profile_name, t_name):
+                self.logger.info(
+                    "Tunnel '%s' already running for profile '%s'", t_name, profile_name
+                )
+                if tunnel.get("dns_override", True):
+                    all_dns.extend(tunnel.get("dns_names", []))
+                continue
+            self.start_tunnel(
+                profile_name,
+                t_name,
+                file_path,
+                profiles,
+                forwarder_cls,
+            )
+            if tunnel.get("dns_override", True):
+                all_dns.extend(tunnel.get("dns_names", []))
+        if all_dns:
+            add_hosts_block(
+                profile_name,
+                profile.get("ip"),
+                all_dns,
+                self.hosts_file,
+                self.logger,
+            )
+        self.logger.info("Started profile '%s'", profile_name)
+
+    def stop_profile(self, profile_name: str) -> None:
+        """Stop all running tunnels for a profile."""
+        to_stop = [k for k in list(self.active_tunnels) if k[0] == profile_name]
+        if not to_stop:
+            raise RuntimeError(f"No tunnels running for profile '{profile_name}'")
+        for key in to_stop:
+            forwarder = self.active_tunnels.get(key)
+            if forwarder and forwarder.is_active:
+                forwarder.stop()
+            del self.active_tunnels[key]
+        remove_hosts_block(profile_name, self.hosts_file, self.logger)
+        self.logger.info("Stopped profile '%s'", profile_name)
